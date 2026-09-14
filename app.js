@@ -2,7 +2,9 @@
   'use strict';
 
   const SERVER_URL = 'https://script.google.com/macros/s/AKfycbxFU_W3cG09demXHXANalKYOyxp7Xte_0XONRyhJZ-30QB26LCvqXw6ygYWnCBEuxiK/exec';
-  const STORAGE_KEY = 'furkinans_pwa_v1';
+  const TELEGRAM_BOT_USERNAME = 'Furkinans_bot';
+  const STORAGE_KEY = 'furkinans_pwa_v1'; // Keep v1 key so existing phone data survives the upgrade.
+  const PAIR_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
   const $ = (id) => document.getElementById(id);
   let data = loadData();
@@ -15,28 +17,42 @@
     accountInput: $('accountInput'), dateTypeInput: $('dateTypeInput'), dateInput: $('dateInput'), descriptionInput: $('descriptionInput'),
     editorError: $('editorError'), deleteRecordButton: $('deleteRecordButton'), saveRecordButton: $('saveRecordButton'),
     weekdayInput: $('weekdayInput'), hourInput: $('hourInput'), minuteInput: $('minuteInput'), lookaheadInput: $('lookaheadInput'),
-    saveSettingsButton: $('saveSettingsButton'), apiKeyInput: $('apiKeyInput'), testTelegramButton: $('testTelegramButton'), syncButton: $('syncButton'),
-    installationIdLabel: $('installationIdLabel'), telegramResult: $('telegramResult')
+    saveSettingsButton: $('saveSettingsButton'), testTelegramButton: $('testTelegramButton'), syncButton: $('syncButton'),
+    installationIdLabel: $('installationIdLabel'), pairCodeLabel: $('pairCodeLabel'), pairTelegramButton: $('pairTelegramButton'),
+    refreshPairCodeButton: $('refreshPairCodeButton'), telegramResult: $('telegramResult')
   };
 
   function defaultData() {
     return {
-      version: 1,
+      version: 2,
       installation_id: makeInstallationId(),
+      device_secret: makeDeviceSecret(),
+      pair_code: makePairCode(),
       records: [],
-      settings: { weekday: 6, hour: 12, minute: 0, lookahead_days: 7, api_key: '' }
+      settings: { weekday: 6, hour: 12, minute: 0, lookahead_days: 7 }
     };
   }
 
   function loadData() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return defaultData();
+      if (!raw) {
+        const fresh = defaultData();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
+        return fresh;
+      }
+
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return defaultData();
+
+      parsed.version = 2;
       parsed.installation_id ||= makeInstallationId();
+      parsed.device_secret ||= makeDeviceSecret();
+      parsed.pair_code = validPairCode(parsed.pair_code) ? String(parsed.pair_code).toUpperCase() : makePairCode();
       parsed.records = Array.isArray(parsed.records) ? parsed.records : [];
-      parsed.settings = Object.assign({ weekday: 6, hour: 12, minute: 0, lookahead_days: 7, api_key: '' }, parsed.settings || {});
+      parsed.settings = Object.assign({ weekday: 6, hour: 12, minute: 0, lookahead_days: 7 }, parsed.settings || {});
+      delete parsed.settings.api_key;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
       return parsed;
     } catch (_) {
       return defaultData();
@@ -48,12 +64,34 @@
   }
 
   function makeInstallationId() {
-    if (crypto && typeof crypto.randomUUID === 'function') return `furk_web_${crypto.randomUUID()}`;
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return `furk_web_${window.crypto.randomUUID()}`;
     return `furk_web_${Date.now()}_${Math.floor(Math.random() * 900000 + 100000)}`;
   }
 
+  function makeDeviceSecret() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return `${window.crypto.randomUUID()}${window.crypto.randomUUID()}`.replace(/-/g, '');
+    }
+    return `${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+  }
+
+  function makePairCode() {
+    const bytes = new Uint8Array(8);
+    if (window.crypto && window.crypto.getRandomValues) {
+      window.crypto.getRandomValues(bytes);
+      return Array.from(bytes, (b) => PAIR_ALPHABET[b % PAIR_ALPHABET.length]).join('');
+    }
+    let out = '';
+    for (let i = 0; i < 8; i++) out += PAIR_ALPHABET[Math.floor(Math.random() * PAIR_ALPHABET.length)];
+    return out;
+  }
+
+  function validPairCode(value) {
+    return /^[A-Z2-9]{8}$/.test(String(value || '').toUpperCase());
+  }
+
   function makeRecordId() {
-    if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
     return `${Date.now()}_${Math.floor(Math.random() * 900000 + 100000)}`;
   }
 
@@ -104,8 +142,8 @@
     els.hourInput.value = String(clampInt(s.hour, 0, 23, 12));
     els.minuteInput.value = String(clampInt(s.minute, 0, 59, 0));
     els.lookaheadInput.value = String(clampInt(s.lookahead_days, 1, 60, 7));
-    els.apiKeyInput.value = String(s.api_key || '');
     els.installationIdLabel.textContent = data.installation_id;
+    els.pairCodeLabel.textContent = data.pair_code;
     updateSyncBadge();
   }
 
@@ -207,18 +245,18 @@
     data.settings.hour = clampInt(els.hourInput.value, 0, 23, 12);
     data.settings.minute = clampInt(els.minuteInput.value, 0, 59, 0);
     data.settings.lookahead_days = clampInt(els.lookaheadInput.value, 1, 60, 7);
-    data.settings.api_key = els.apiKeyInput.value.trim();
     saveData();
     loadSettingsUi();
-    showResult('Ayarlar bu cihazda kaydedildi.', true);
+    showResult('Bildirim ayarları bu cihazda kaydedildi ve sunucuya gönderiliyor.', true);
     syncAll({ quiet: true });
   }
 
   function payload(action) {
     const base = {
       action,
-      api_key: String(data.settings.api_key || '').trim(),
-      installation_id: data.installation_id
+      installation_id: data.installation_id,
+      device_secret: data.device_secret,
+      pair_code: data.pair_code
     };
     if (action === 'sync') {
       base.settings = {
@@ -232,25 +270,47 @@
     return base;
   }
 
-  async function postOpaque(action) {
-    if (!String(data.settings.api_key || '').trim()) throw new Error('Önce API anahtarını girip ayarları kaydet.');
+  async function postOpaque(action, { keepalive = false } = {}) {
     await fetch(SERVER_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(payload(action)),
-      cache: 'no-store'
+      cache: 'no-store',
+      keepalive
     });
+  }
+
+  function pairTelegram() {
+    try {
+      if (!validPairCode(data.pair_code)) data.pair_code = makePairCode();
+      saveData();
+      loadSettingsUi();
+
+      postOpaque('sync', { keepalive: true }).catch(() => {});
+      showResult('Telegram açılıyor. Açılan sohbette Başlat / Start düğmesine bas.', true);
+
+      const url = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${encodeURIComponent(data.pair_code)}`;
+      window.location.href = url;
+    } catch (err) {
+      showResult(err.message || 'Telegram bağlantısı başlatılamadı.', false);
+    }
+  }
+
+  function refreshPairCode() {
+    data.pair_code = makePairCode();
+    saveData();
+    loadSettingsUi();
+    showResult('Yeni bağlantı kodu oluşturuldu. Telegram’da Bağla düğmesine bas.', true);
+    syncAll({ quiet: true });
   }
 
   async function testTelegram() {
     try {
-      data.settings.api_key = els.apiKeyInput.value.trim();
-      saveData();
       showResult('Test isteği gönderiliyor…');
       await postOpaque('test');
-      showResult('Test isteği gönderildi. Telegram’da Furkinans mesajını kontrol et.', true);
-      updateSyncBadge('Gönderildi');
+      showResult('Test gönderildi. Telefon Telegram’a bağlıysa yaklaşık birkaç saniye içinde mesaj gelir.', true);
+      updateSyncBadge('Test gönderildi');
     } catch (err) {
       showResult(err.message || 'Test isteği gönderilemedi.', false);
       updateSyncBadge('Hata');
@@ -259,8 +319,6 @@
 
   async function syncAll({ quiet = false } = {}) {
     try {
-      data.settings.api_key = els.apiKeyInput.value.trim();
-      saveData();
       if (!quiet) showResult('Kayıtlar sunucuya gönderiliyor…');
       updateSyncBadge('Senkron…');
       await postOpaque('sync');
@@ -285,13 +343,7 @@
       els.syncBadge.textContent = force;
       return;
     }
-    if (!navigator.onLine) {
-      els.syncBadge.textContent = 'Çevrimdışı';
-    } else if (String(data.settings.api_key || '').trim()) {
-      els.syncBadge.textContent = 'Telegram hazır';
-    } else {
-      els.syncBadge.textContent = 'Yerel';
-    }
+    els.syncBadge.textContent = navigator.onLine ? 'Sunucu hazır' : 'Çevrimdışı';
   }
 
   els.tabRecords.addEventListener('click', () => showView('records'));
@@ -302,6 +354,8 @@
   els.saveRecordButton.addEventListener('click', saveRecord);
   els.deleteRecordButton.addEventListener('click', deleteRecord);
   els.saveSettingsButton.addEventListener('click', saveSettings);
+  els.pairTelegramButton.addEventListener('click', pairTelegram);
+  els.refreshPairCodeButton.addEventListener('click', refreshPairCode);
   els.testTelegramButton.addEventListener('click', testTelegram);
   els.syncButton.addEventListener('click', () => syncAll());
   window.addEventListener('online', () => { updateSyncBadge(); syncAll({ quiet: true }); });
@@ -309,6 +363,9 @@
 
   renderRecords();
   loadSettingsUi();
+  saveData();
+
+  if (navigator.onLine) syncAll({ quiet: true });
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
