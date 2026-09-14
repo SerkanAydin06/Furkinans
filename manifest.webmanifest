@@ -1,0 +1,16 @@
+{
+  "name": "Furkinans",
+  "short_name": "Furkinans",
+  "description": "Ödemelerini takip et, yaklaşan ödemeleri Telegram'dan al.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#09111f",
+  "theme_color": "#09111f",
+  "orientation": "portrait-primary",
+  "lang": "tr-TR",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ]
+}
