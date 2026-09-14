@@ -10,7 +10,7 @@
   <meta name="format-detection" content="telephone=no" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-180.png" />
-  <link rel="icon" href="icon.svg" />
+  <link rel="icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
   <title>Furkinans</title>
 </head>
@@ -94,15 +94,18 @@
 
         <div class="card stack">
           <div>
-            <span class="eyebrow">BAĞLANTI</span>
-            <h2>Telegram sunucusu</h2>
-            <p class="muted">Sunucu adresi Furkinans’a sabitlenmiştir. API anahtarını yalnızca bu cihazda bir kez girmen yeterli.</p>
+            <span class="eyebrow">TELEGRAM BAĞLANTISI</span>
+            <h2>Bu telefonu Telegram’a bağla</h2>
+            <p class="muted">Her telefon kendi Telegram hesabını ayrı bağlar. Aşağıdaki düğmeye bas, Telegram açılınca <strong>Başlat / Start</strong> düğmesine dokun. Bot en geç yaklaşık 1 dakika içinde bağlantıyı onaylar.</p>
           </div>
 
-          <label class="field">
-            <span>API anahtarı</span>
-            <input id="apiKeyInput" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="FURKINANS_API_KEY" />
-          </label>
+          <div class="pair-code-box">
+            <span>Bağlantı kodu</span>
+            <strong id="pairCodeLabel">--------</strong>
+          </div>
+
+          <button id="pairTelegramButton" class="telegram-button" type="button">Telegram’da Bağla</button>
+          <button id="refreshPairCodeButton" class="secondary-button" type="button">Bağlantı Kodunu Yenile</button>
 
           <div class="button-row">
             <button id="testTelegramButton" class="secondary-button" type="button">Telegram Testi</button>
@@ -110,7 +113,7 @@
           </div>
 
           <div class="connection-info">
-            <span>Kurulum Kimliği</span>
+            <span>Bu cihazın kimliği</span>
             <code id="installationIdLabel"></code>
           </div>
           <p id="telegramResult" class="result-text" role="status"></p>
