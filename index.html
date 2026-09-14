@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#09111f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Furkinans" />
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="icon" href="icon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Furkinans</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <h1>Furkinans</h1>
+        <p>Ödemelerini sade şekilde takip et</p>
+      </div>
+      <div class="brand-mark" aria-hidden="true">₺</div>
+    </header>
+
+    <nav class="tabs" aria-label="Ana bölümler">
+      <button id="tabRecords" class="tab active" type="button">Kayıtlar</button>
+      <button id="tabSettings" class="tab" type="button">Bildirim Ayarları</button>
+    </nav>
+
+    <main>
+      <section id="recordsView" class="view active">
+        <div class="summary-card">
+          <div>
+            <span class="eyebrow">TOPLAM KAYIT</span>
+            <strong id="recordCount">0</strong>
+          </div>
+          <span id="syncBadge" class="status-badge">Yerel</span>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head table-grid">
+            <span>Hesap</span>
+            <span>Tarih</span>
+            <span>Açıklama</span>
+          </div>
+          <div id="recordsList" class="records-list"></div>
+          <div id="emptyState" class="empty-state">
+            <div class="empty-icon">₺</div>
+            <h2>Henüz kayıt yok</h2>
+            <p>İlk hesabını veya ödemeni ekleyerek başla.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="settingsView" class="view">
+        <div class="card stack">
+          <div>
+            <span class="eyebrow">TELEGRAM</span>
+            <h2>Bildirim planı</h2>
+            <p class="muted">Furkinans seçtiğin gün ve saatte, önümüzdeki belirlediğin günlerdeki kayıtları Telegram’dan gönderir.</p>
+          </div>
+
+          <label class="field">
+            <span>Gönderim günü</span>
+            <select id="weekdayInput">
+              <option value="0">Pazartesi</option>
+              <option value="1">Salı</option>
+              <option value="2">Çarşamba</option>
+              <option value="3">Perşembe</option>
+              <option value="4">Cuma</option>
+              <option value="5">Cumartesi</option>
+              <option value="6">Pazar</option>
+            </select>
+          </label>
+
+          <div class="field">
+            <span>Saat</span>
+            <div class="time-row">
+              <input id="hourInput" type="number" min="0" max="23" inputmode="numeric" />
+              <span>:</span>
+              <input id="minuteInput" type="number" min="0" max="59" inputmode="numeric" />
+            </div>
+          </div>
+
+          <label class="field">
+            <span>Kaç gün ileri bakılsın?</span>
+            <input id="lookaheadInput" type="number" min="1" max="60" inputmode="numeric" />
+          </label>
+
+          <button id="saveSettingsButton" class="primary-button" type="button">Bildirim Ayarlarını Kaydet</button>
+        </div>
+
+        <div class="card stack">
+          <div>
+            <span class="eyebrow">BAĞLANTI</span>
+            <h2>Telegram sunucusu</h2>
+            <p class="muted">Sunucu adresi Furkinans’a sabitlenmiştir. API anahtarını yalnızca bu cihazda bir kez girmen yeterli.</p>
+          </div>
+
+          <label class="field">
+            <span>API anahtarı</span>
+            <input id="apiKeyInput" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="FURKINANS_API_KEY" />
+          </label>
+
+          <div class="button-row">
+            <button id="testTelegramButton" class="secondary-button" type="button">Telegram Testi</button>
+            <button id="syncButton" class="primary-button" type="button">Şimdi Senkronize Et</button>
+          </div>
+
+          <div class="connection-info">
+            <span>Kurulum Kimliği</span>
+            <code id="installationIdLabel"></code>
+          </div>
+          <p id="telegramResult" class="result-text" role="status"></p>
+        </div>
+
+        <div class="card install-card">
+          <div>
+            <span class="eyebrow">IPHONE</span>
+            <h2>Ana ekrana ekle</h2>
+            <p class="muted">Safari’de Paylaş düğmesine basıp “Ana Ekrana Ekle” seçeneğini kullan. Furkinans ayrı bir uygulama gibi açılır.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <button id="addRecordButton" class="fab" type="button">＋ Yeni Kayıt</button>
+  </div>
+
+  <div id="editorOverlay" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">KAYIT</span>
+          <h2 id="editorTitle">Yeni Kayıt</h2>
+        </div>
+        <button id="closeEditorButton" class="icon-button" type="button" aria-label="Kapat">×</button>
+      </div>
+
+      <label class="field">
+        <span>Hesap / ödeme adı</span>
+        <input id="accountInput" type="text" maxlength="80" placeholder="Örn. Akbank Kredi Kartı" />
+      </label>
+
+      <label class="field">
+        <span>Tarih türü</span>
+        <select id="dateTypeInput">
+          <option value="due">Son Ödeme</option>
+          <option value="statement">Hesap Kesim</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Tarih</span>
+        <input id="dateInput" type="date" />
+      </label>
+
+      <label class="field">
+        <span>Açıklama</span>
+        <textarea id="descriptionInput" rows="4" maxlength="240" placeholder="İstersen kısa bir not ekle"></textarea>
+      </label>
+
+      <p id="editorError" class="error-text" role="alert"></p>
+
+      <div class="button-row modal-actions">
+        <button id="deleteRecordButton" class="danger-button hidden" type="button">Sil</button>
+        <button id="saveRecordButton" class="primary-button grow" type="button">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
