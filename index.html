@@ -45,6 +45,7 @@
             <span>Hesap</span>
             <span>Tarih</span>
             <span>Açıklama</span>
+            <span>Durum</span>
           </div>
           <div id="recordsList" class="records-list"></div>
           <div id="emptyState" class="empty-state">
@@ -60,7 +61,7 @@
           <div>
             <span class="eyebrow">TELEGRAM</span>
             <h2>Bildirim planı</h2>
-            <p class="muted">Furkinans seçtiğin gün ve saatte, önümüzdeki belirlediğin günlerdeki kayıtları Telegram’dan gönderir.</p>
+            <p class="muted">Furkinans seçtiğin gün ve saatte geçmiş ve yaklaşan bekleyen kayıtları özetler. Bekleyen ödemeler ayrıca her gün seçtiğin saatte tekrar hatırlatılır.</p>
           </div>
 
           <label class="field">
@@ -90,6 +91,21 @@
             <input id="lookaheadInput" type="number" min="1" max="60" inputmode="numeric" />
           </label>
 
+          <label class="field">
+            <span>Kaç gün geriye bakılsın?</span>
+            <input id="lookbackInput" type="number" min="0" max="60" inputmode="numeric" />
+          </label>
+
+          <div class="field">
+            <span>Günlük hatırlatma saati</span>
+            <div class="time-row">
+              <input id="dailyHourInput" type="number" min="0" max="23" inputmode="numeric" />
+              <span>:</span>
+              <input id="dailyMinuteInput" type="number" min="0" max="59" inputmode="numeric" />
+            </div>
+            <small class="field-help">Ödendi olarak işaretlenmeyen kayıtlar bu saatte her gün yeniden hatırlatılır.</small>
+          </div>
+
           <button id="saveSettingsButton" class="primary-button" type="button">Bildirim Ayarlarını Kaydet</button>
 
           <div id="settingsSaveFeedback" class="save-feedback" role="status" aria-live="polite">
@@ -111,6 +127,7 @@
             <div class="plan-summary-grid">
               <div><span>Gönderim</span><strong id="planScheduleLabel">—</strong></div>
               <div><span>Tarama</span><strong id="planLookaheadLabel">—</strong></div>
+              <div><span>Günlük</span><strong id="planDailyLabel">—</strong></div>
               <div><span>Kayıt</span><strong id="planRecordCountLabel">—</strong></div>
               <div><span>Sunucu</span><strong id="planServerLabel">Kontrol ediliyor</strong></div>
             </div>
@@ -206,6 +223,15 @@
       <label class="field">
         <span>Açıklama</span>
         <textarea id="descriptionInput" rows="4" maxlength="240" placeholder="İstersen kısa bir not ekle"></textarea>
+      </label>
+
+      <label class="payment-toggle-field">
+        <input id="paidInput" type="checkbox" />
+        <span class="payment-toggle-ui" aria-hidden="true"></span>
+        <span class="payment-toggle-copy">
+          <strong>Ödeme yapıldı</strong>
+          <small>İşaretlediğinde bu kayıt için Telegram hatırlatmaları durur.</small>
+        </span>
       </label>
 
       <p id="editorError" class="error-text" role="alert"></p>
