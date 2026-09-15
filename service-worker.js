@@ -1,13 +1,13 @@
-const CACHE_NAME = 'furkinans-v1-1-cache-r15';
+const CACHE_NAME = 'furkinans-v1-4-cache-r16';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './record-controls.css',
-  './app.js',
-  './notification-plan.js',
+  './app.js?v=16',
+  './notification-plan.js?v=16',
   './manifest.webmanifest',
-  './icons/furkinans-logo.png?v=14'
+  './icons/furkinans-logo.png?v=16'
 ];
 
 self.addEventListener('install', (event) => {
