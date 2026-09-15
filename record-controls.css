@@ -1,8 +1,9 @@
 .brand-mark {
   color: transparent !important;
-  background: url('./icon.svg') center / cover no-repeat !important;
-  box-shadow: 0 18px 38px rgba(47, 128, 255, 0.22) !important;
-  overflow: hidden;
+  background: transparent url('./icon.svg') center / 100% 100% no-repeat !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  overflow: visible;
 }
 
 #view-records {
