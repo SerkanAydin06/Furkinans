@@ -49,12 +49,13 @@
     const old = view && view.querySelector('.summary-card');
     if (!view || !old || view.querySelector('.pro-dashboard')) return;
 
+    const syncBadge = old.querySelector('#syncBadge');
     const dashboard = document.createElement('section');
     dashboard.className = 'pro-dashboard';
     dashboard.innerHTML = `
       <div class="pro-dashboard-head">
         <div><span class="eyebrow">FİNANS PANOSU</span><h2>Kayıtların</h2></div>
-        <span id="proSyncBadge" class="status-badge">Hazır</span>
+        <span class="pro-badge-slot"></span>
       </div>
       <div class="pro-stats-grid">
         <div class="pro-stat"><span>Toplam</span><strong id="proTotal">0</strong></div>
@@ -63,6 +64,8 @@
         <div class="pro-stat danger"><span>Geciken</span><strong id="proOverdue">0</strong></div>
       </div>`;
     old.replaceWith(dashboard);
+    const slot = dashboard.querySelector('.pro-badge-slot');
+    if (syncBadge && slot) slot.replaceWith(syncBadge);
   }
 
   function syncDashboard() {
@@ -74,10 +77,6 @@
     if ($('proPending')) $('proPending').textContent = String(pending);
     if ($('proPaid')) $('proPaid').textContent = String(paid);
     if ($('proOverdue')) $('proOverdue').textContent = String(overdue);
-
-    const source = $('syncBadge');
-    const target = $('proSyncBadge');
-    if (source && target) target.textContent = source.textContent || 'Hazır';
   }
 
   function applySettingsDesign() {
