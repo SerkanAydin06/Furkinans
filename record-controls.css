@@ -89,33 +89,60 @@
 /*
   Üst satır:
   - sol %50: HESAP + hesap adı
-  - orta: DURUM + mevcut durum
+  - sağ yarının solu: DURUM + mevcut durum
   - en sağ: SİL
 */
 .record-head {
   position: relative;
   display: block !important;
-  min-height: 45px;
+  min-height: 49px;
   padding-right: 62px;
 }
 
+/* DURUM alanının ayrı panel zemini */
+.record-head::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% + 5px);
+  right: 5px;
+  border: 1px solid rgba(126,153,201,.14);
+  border-radius: 11px;
+  background: rgba(20,31,55,.42);
+  pointer-events: none;
+}
+
+/* HESAP alanı */
 .record-head > div:first-child {
   width: 50%;
   min-width: 0;
-  padding-right: 8px;
+  min-height: 49px;
+  padding: 6px 8px 7px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  border: 1px solid rgba(126,153,201,.14);
+  border-radius: 11px;
+  background: rgba(20,31,55,.42);
 }
 
 .record-label {
-  margin-bottom: 3px;
+  width: 100%;
+  margin-bottom: 4px;
   font-size: 9.5px;
   line-height: 1;
+  text-align: center;
 }
 
 .record-title {
+  width: 100%;
   min-width: 0;
   margin: 0;
   font-size: 18px;
   line-height: 1.08;
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -123,30 +150,35 @@
 
 .status-chip {
   position: absolute;
-  left: 50%;
-  top: 13px;
+  left: calc(75% - 28px);
+  top: 18px;
+  transform: translateX(-50%);
   min-width: 86px;
   width: 92px;
-  height: 31px;
-  min-height: 31px;
+  height: 29px;
+  min-height: 29px;
   margin: 0;
   padding: 0 7px;
   justify-content: center;
   gap: 4px;
   font-size: 10.5px;
   white-space: nowrap;
+  z-index: 1;
 }
 
 .status-chip::before {
   content: 'DURUM';
   position: absolute;
-  left: 2px;
-  top: -13px;
+  left: 50%;
+  top: -14px;
+  width: 100%;
+  transform: translateX(-50%);
   color: #a2b8de;
   font-size: 9.5px;
   font-weight: 800;
   letter-spacing: .08em;
   line-height: 1;
+  text-align: center;
   pointer-events: none;
 }
 
@@ -180,19 +212,21 @@
   overflow: hidden;
 }
 
-/* Eski footer sadece Sil butonunu en sağa taşır; ekstra satır oluşturmaz. */
+/* Sil alanı ayrı blok halinde en sağda */
 .record-footer {
   position: absolute;
   top: 11px;
   right: 12px;
-  width: 54px;
-  height: 44px;
+  width: 57px;
+  height: 49px;
   margin: 0;
-  padding: 0;
-  border: 0;
+  padding: 4px;
+  border: 1px solid rgba(255,91,98,.16);
+  border-radius: 11px;
+  background: rgba(255,91,98,.045);
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   pointer-events: none;
 }
 
@@ -204,11 +238,11 @@
 
 .record-delete-inline {
   pointer-events: auto;
-  width: 54px;
-  min-width: 54px;
-  height: 40px;
-  padding: 0 7px;
-  border-radius: 10px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 5px;
+  border-radius: 8px;
   border: 1px solid rgba(255,91,98,.30);
   background: rgba(255,91,98,.10);
   color: #ffb6ba;
@@ -291,13 +325,21 @@
   }
 
   .record-head {
-    min-height: 43px;
+    min-height: 47px;
     padding-right: 57px;
+  }
+
+  .record-head::before {
+    left: calc(50% + 4px);
+    right: 4px;
+    border-radius: 10px;
   }
 
   .record-head > div:first-child {
     width: 50%;
-    padding-right: 6px;
+    min-height: 47px;
+    padding: 6px 6px;
+    border-radius: 10px;
   }
 
   .record-title {
@@ -305,18 +347,18 @@
   }
 
   .status-chip {
-    left: 50%;
-    top: 12px;
+    left: calc(75% - 26px);
+    top: 17px;
     min-width: 78px;
     width: 84px;
-    height: 30px;
-    min-height: 30px;
+    height: 28px;
+    min-height: 28px;
     padding: 0 6px;
     font-size: 10px;
   }
 
   .status-chip::before {
-    top: -12px;
+    top: -13px;
     font-size: 9px;
   }
 
@@ -340,15 +382,14 @@
   .record-footer {
     top: 10px;
     right: 11px;
-    width: 50px;
-    height: 42px;
+    width: 52px;
+    height: 47px;
+    padding: 4px;
+    border-radius: 10px;
   }
 
   .record-delete-inline {
-    width: 50px;
-    min-width: 50px;
-    height: 38px;
-    padding: 0 6px;
     font-size: 10px;
+    padding: 0 4px;
   }
 }
