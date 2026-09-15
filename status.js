@@ -105,6 +105,12 @@
       els.autoSyncDetail.textContent = 'Uygulama açıkken veya internet yenilendiğinde otomatik tekrar dener.';
       return;
     }
+    if (state === 'waiting') {
+      els.autoSyncCard.classList.add('syncing');
+      els.autoSyncTitle.textContent = 'Sunucu doğrulanıyor…';
+      els.autoSyncDetail.textContent = 'v2.2 hazır olduğunda senkronizasyon otomatik başlayacak.';
+      return;
+    }
 
     els.autoSyncTitle.textContent = 'Otomatik senkronizasyon açık';
     els.autoSyncDetail.textContent = last ? `Son gönderim: ${formatStamp(last)}.` : 'Kayıt ve ayar değişiklikleri otomatik gönderilir.';
@@ -275,6 +281,12 @@
     try {
       const result = await fetchStatus();
       serverStatus = result && result.ok ? result : { ok: false, found: false };
+      const backendVersion = Number(serverStatus && serverStatus.backend_version || 0);
+      if (backendVersion >= 2.2) {
+        window.dispatchEvent(new CustomEvent('furkinans:backend-ready'));
+      } else {
+        renderAutoSync('waiting');
+      }
       renderAll();
       return serverStatus;
     } catch (err) {
