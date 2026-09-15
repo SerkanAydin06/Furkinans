@@ -1,0 +1,126 @@
+#view-records {
+  padding-bottom: 108px;
+}
+
+.record-card {
+  position: relative;
+  border-radius: var(--radius-xl);
+  overflow: visible;
+  touch-action: auto;
+}
+
+.record-delete-zone,
+.record-delete-button {
+  display: none !important;
+}
+
+.record-shell {
+  position: relative;
+  padding: 18px;
+  min-height: 286px;
+  display: flex;
+  flex-direction: column;
+  transform: none !important;
+  transition: none !important;
+}
+
+.record-card.open .record-shell {
+  transform: none !important;
+}
+
+.status-chip {
+  min-width: 132px;
+  min-height: 54px;
+  justify-content: center;
+}
+
+.record-grid {
+  flex: 1 1 auto;
+}
+
+.record-info strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.record-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 52px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(126,153,201,.12);
+}
+
+.record-state-note {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.record-state-note.pending { color: #ffd78f; }
+.record-state-note.overdue { color: #ffacb1; }
+.record-state-note.paid { color: #86ffc0; }
+
+.record-delete-inline {
+  min-width: 92px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,91,98,.30);
+  background: rgba(255,91,98,.10);
+  color: #ffb6ba;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.record-delete-inline span {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.record-delete-inline:active {
+  transform: scale(.97);
+}
+
+.fab {
+  z-index: 12;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 760px) {
+  .status-chip {
+    min-width: 132px;
+  }
+}
+
+@media (max-width: 560px) {
+  #view-records {
+    padding-bottom: 96px;
+  }
+
+  .record-shell {
+    min-height: 330px;
+  }
+
+  .record-footer {
+    grid-template-columns: minmax(0,1fr) auto;
+  }
+
+  .record-delete-inline {
+    min-width: 82px;
+    height: 42px;
+    padding: 0 13px;
+  }
+}
