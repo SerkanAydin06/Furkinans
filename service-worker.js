@@ -1,9 +1,11 @@
-const CACHE = 'furkinans-pwa-v2';
+const CACHE = 'furkinans-pwa-v3';
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
+  './status.css',
   './app.js',
+  './status.js',
   './manifest.webmanifest',
   './icon.svg',
   './icons/icon-180.png'
