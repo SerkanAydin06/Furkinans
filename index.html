@@ -8,10 +8,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Furkinans">
   <meta name="format-detection" content="telephone=no">
-  <title>Furkinans v1.0</title>
+  <title>Furkinans v1.1</title>
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="apple-touch-icon" href="./icons/furkinans-logo.png?v=13">
-  <link rel="icon" type="image/png" href="./icons/furkinans-logo.png?v=13">
+  <link rel="apple-touch-icon" href="./icons/furkinans-logo.png?v=14">
+  <link rel="icon" type="image/png" href="./icons/furkinans-logo.png?v=14">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./record-controls.css">
 </head>
@@ -21,11 +21,11 @@
       <div class="title-group">
         <div class="title-row">
           <h1>Furkinans</h1>
-          <span class="version-badge">v1.0</span>
+          <span class="version-badge">v1.1</span>
         </div>
         <p>Ödemelerini sade şekilde takip et</p>
       </div>
-      <img class="brand-mark" src="./icons/furkinans-logo.png?v=13" alt="Furkinans">
+      <img class="brand-mark" src="./icons/furkinans-logo.png?v=14" alt="Furkinans">
     </header>
 
     <nav class="tabs" aria-label="Ana bölümler">
@@ -79,12 +79,12 @@
           <div>
             <span class="eyebrow">BİLDİRİM PLANI</span>
             <h2>Telegram hatırlatmaları</h2>
-            <p class="muted">Haftalık özet için gün ve saat seç. Ayrıca ödenmeyen kayıtlar, belirlediğin günlük saatte tekrar hatırlatılır.</p>
+            <p class="muted">Genel bildirim için gün ve saat seç. Genel bildirimde takibe alınan ödenmemiş kayıtlar, ertesi günden itibaren belirlediğin günlük saatte ödeme yapılana kadar tekrar hatırlatılır.</p>
           </div>
 
           <div class="grid-2">
             <label class="field">
-              <span>Gönderim günü</span>
+              <span>Genel bildirim günü</span>
               <select id="setting-weekday">
                 <option value="0">Pazartesi</option>
                 <option value="1">Salı</option>
@@ -97,7 +97,7 @@
             </label>
 
             <label class="field">
-              <span>Özet saati</span>
+              <span>Genel bildirim saati</span>
               <div class="time-row">
                 <input id="setting-hour" type="number" min="0" max="23" inputmode="numeric">
                 <span>:</span>
@@ -116,7 +116,7 @@
             </label>
 
             <label class="field">
-              <span>Günlük hatırlatma saati</span>
+              <span>Günlük takip saati</span>
               <div class="time-row">
                 <input id="setting-daily-hour" type="number" min="0" max="23" inputmode="numeric">
                 <span>:</span>
@@ -129,7 +129,7 @@
               <span class="toggle-ui"></span>
               <span class="toggle-copy">
                 <strong>Bildirim planı aktif</strong>
-                <small>Telegram bağlıysa haftalık ve günlük bildirimler çalışır.</small>
+                <small>Telegram bağlıysa genel bildirim ve günlük takip bildirimleri çalışır.</small>
               </span>
             </label>
           </div>
