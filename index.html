@@ -1,254 +1,270 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#09111f" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Furkinans" />
-  <meta name="format-detection" content="telephone=no" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="icons/icon-180.png" />
-  <link rel="icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="status.css" />
-  <link rel="stylesheet" href="pro-ui.css" />
-  <link rel="stylesheet" href="tabs-v2.css" />
-  <title>Furkinans</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Furkinans">
+  <meta name="format-detection" content="telephone=no">
+  <title>Furkinans v1.0</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-180.png">
+  <link rel="icon" type="image/svg+xml" href="./icon.svg">
+  <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div>
-        <h1>Furkinans</h1>
+      <div class="title-group">
+        <div class="title-row">
+          <h1>Furkinans</h1>
+          <span class="version-badge">v1.0</span>
+        </div>
         <p>Ödemelerini sade şekilde takip et</p>
       </div>
-      <div class="brand-mark" aria-hidden="true">₺</div>
+      <div class="brand-mark" aria-hidden="true">F</div>
     </header>
 
     <nav class="tabs" aria-label="Ana bölümler">
-      <button id="tabRecords" class="tab active" type="button">Kayıtlar</button>
-      <button id="tabSettings" class="tab" type="button">Bildirim Ayarları</button>
-      <button id="tabConnections" class="tab" type="button">Bağlantı Ayarları</button>
+      <button id="tab-records" class="tab active" type="button">Kayıtlar</button>
+      <button id="tab-settings" class="tab" type="button">Bildirim Ayarları</button>
+      <button id="tab-connections" class="tab" type="button">Bağlantı Ayarları</button>
     </nav>
 
     <main>
-      <section id="recordsView" class="view active">
-        <div class="summary-card">
-          <div>
-            <span class="eyebrow">TOPLAM KAYIT</span>
-            <strong id="recordCount">0</strong>
+      <section id="view-records" class="view active">
+        <div class="panel records-hero">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">FİNANS PANOSU</span>
+              <h2>Kayıtların</h2>
+            </div>
+            <button id="sync-badge" class="sync-pill" type="button">Yerel</button>
           </div>
-          <span id="syncBadge" class="status-badge">Yerel</span>
+
+          <div class="stats-grid">
+            <div class="stat-card stat-total">
+              <div class="stat-icon">📄</div>
+              <div><span>Toplam</span><strong id="stat-total">0</strong></div>
+            </div>
+            <div class="stat-card stat-pending">
+              <div class="stat-icon">🕒</div>
+              <div><span>Bekleyen</span><strong id="stat-pending">0</strong></div>
+            </div>
+            <div class="stat-card stat-paid">
+              <div class="stat-icon">✅</div>
+              <div><span>Ödendi</span><strong id="stat-paid">0</strong></div>
+            </div>
+            <div class="stat-card stat-overdue">
+              <div class="stat-icon">❗</div>
+              <div><span>Geciken</span><strong id="stat-overdue">0</strong></div>
+            </div>
+          </div>
         </div>
 
-        <div class="table-card">
-          <div class="table-head table-grid">
-            <span>Hesap</span>
-            <span>Tarih</span>
-            <span>Açıklama</span>
-            <span>Durum</span>
-          </div>
-          <div id="recordsList" class="records-list"></div>
-          <div id="emptyState" class="empty-state">
-            <div class="empty-icon">₺</div>
-            <h2>Henüz kayıt yok</h2>
-            <p>İlk hesabını veya ödemeni ekleyerek başla.</p>
-          </div>
+        <div id="records-list" class="records-list"></div>
+
+        <div id="empty-state" class="panel empty-state hidden">
+          <div class="empty-icon">₺</div>
+          <h3>Henüz kayıt yok</h3>
+          <p>Sağ alttaki düğmeye basıp ilk kaydını ekleyebilirsin.</p>
         </div>
       </section>
 
-      <section id="settingsView" class="view">
-        <div class="card stack">
+      <section id="view-settings" class="view">
+        <div class="panel form-panel stack-gap">
           <div>
-            <span class="eyebrow">TELEGRAM</span>
-            <h2>Bildirim planı</h2>
-            <p class="muted">Furkinans seçtiğin gün ve saatte geçmiş ve yaklaşan bekleyen kayıtları özetler. Bekleyen ödemeler ayrıca her gün seçtiğin saatte tekrar hatırlatılır.</p>
+            <span class="eyebrow">BİLDİRİM PLANI</span>
+            <h2>Telegram hatırlatmaları</h2>
+            <p class="muted">Haftalık özet için gün ve saat seç. Ayrıca ödenmeyen kayıtlar, belirlediğin günlük saatte tekrar hatırlatılır.</p>
           </div>
 
-          <label class="field">
-            <span>Gönderim günü</span>
-            <select id="weekdayInput">
-              <option value="0">Pazartesi</option>
-              <option value="1">Salı</option>
-              <option value="2">Çarşamba</option>
-              <option value="3">Perşembe</option>
-              <option value="4">Cuma</option>
-              <option value="5">Cumartesi</option>
-              <option value="6">Pazar</option>
-            </select>
-          </label>
+          <div class="grid-2">
+            <label class="field">
+              <span>Gönderim günü</span>
+              <select id="setting-weekday">
+                <option value="0">Pazartesi</option>
+                <option value="1">Salı</option>
+                <option value="2">Çarşamba</option>
+                <option value="3">Perşembe</option>
+                <option value="4">Cuma</option>
+                <option value="5">Cumartesi</option>
+                <option value="6">Pazar</option>
+              </select>
+            </label>
 
-          <div class="field">
-            <span>Saat</span>
-            <div class="time-row">
-              <input id="hourInput" type="number" min="0" max="23" inputmode="numeric" />
-              <span>:</span>
-              <input id="minuteInput" type="number" min="0" max="59" inputmode="numeric" />
-            </div>
-          </div>
-
-          <label class="field">
-            <span>Kaç gün ileri bakılsın?</span>
-            <input id="lookaheadInput" type="number" min="1" max="60" inputmode="numeric" />
-          </label>
-
-          <label class="field">
-            <span>Kaç gün geriye bakılsın?</span>
-            <input id="lookbackInput" type="number" min="0" max="60" inputmode="numeric" />
-          </label>
-
-          <div class="field">
-            <span>Günlük hatırlatma saati</span>
-            <div class="time-row">
-              <input id="dailyHourInput" type="number" min="0" max="23" inputmode="numeric" />
-              <span>:</span>
-              <input id="dailyMinuteInput" type="number" min="0" max="59" inputmode="numeric" />
-            </div>
-            <small class="field-help">Ödendi olarak işaretlenmeyen kayıtlar bu saatte her gün yeniden hatırlatılır.</small>
-          </div>
-
-          <button id="saveSettingsButton" class="primary-button" type="button">Bildirim Ayarlarını Kaydet</button>
-
-          <div id="settingsSaveFeedback" class="save-feedback" role="status" aria-live="polite">
-            <span class="save-feedback-icon">✓</span>
-            <div>
-              <strong id="settingsSaveTitle">Ayarlar hazır</strong>
-              <span id="settingsSaveDetail">Değişiklik yaptıktan sonra Kaydet'e bas.</span>
-            </div>
-          </div>
-
-          <div class="plan-status-card">
-            <div class="status-card-head">
-              <div>
-                <span class="eyebrow">AKTİF PLAN</span>
-                <strong id="planStatusTitle">Bildirim planı</strong>
+            <label class="field">
+              <span>Özet saati</span>
+              <div class="time-row">
+                <input id="setting-hour" type="number" min="0" max="23" inputmode="numeric">
+                <span>:</span>
+                <input id="setting-minute" type="number" min="0" max="59" inputmode="numeric">
               </div>
-              <span id="planStatusBadge" class="mini-status checking">Kontrol ediliyor</span>
-            </div>
-            <div class="plan-summary-grid">
-              <div><span>Gönderim</span><strong id="planScheduleLabel">—</strong></div>
-              <div><span>Tarama</span><strong id="planLookaheadLabel">—</strong></div>
-              <div><span>Günlük</span><strong id="planDailyLabel">—</strong></div>
-              <div><span>Kayıt</span><strong id="planRecordCountLabel">—</strong></div>
-              <div><span>Sunucu</span><strong id="planServerLabel">Kontrol ediliyor</strong></div>
-            </div>
+            </label>
+
+            <label class="field">
+              <span>Kaç gün ileri bakılsın?</span>
+              <input id="setting-lookahead" type="number" min="1" max="60" inputmode="numeric">
+            </label>
+
+            <label class="field">
+              <span>Kaç gün geriye bakılsın?</span>
+              <input id="setting-lookback" type="number" min="0" max="60" inputmode="numeric">
+            </label>
+
+            <label class="field">
+              <span>Günlük hatırlatma saati</span>
+              <div class="time-row">
+                <input id="setting-daily-hour" type="number" min="0" max="23" inputmode="numeric">
+                <span>:</span>
+                <input id="setting-daily-minute" type="number" min="0" max="59" inputmode="numeric">
+              </div>
+            </label>
+
+            <label class="toggle-row">
+              <input id="setting-enabled" type="checkbox">
+              <span class="toggle-ui"></span>
+              <span class="toggle-copy">
+                <strong>Bildirim planı aktif</strong>
+                <small>Telegram bağlıysa haftalık ve günlük bildirimler çalışır.</small>
+              </span>
+            </label>
           </div>
+
+          <button id="save-settings" class="primary-button" type="button">Bildirim Ayarlarını Kaydet</button>
+          <div id="settings-feedback" class="info-card">Hazır. Ayarları kaydedebilirsin.</div>
         </div>
+      </section>
 
-        <div class="card stack">
+      <section id="view-connections" class="view">
+        <div class="panel form-panel stack-gap">
           <div>
-            <span class="eyebrow">TELEGRAM BAĞLANTISI</span>
-            <h2>Telegram durumu</h2>
-            <p class="muted">Bu cihazın Telegram bağlantısını Furkinans sunucusundan kontrol eder.</p>
+            <span class="eyebrow">SUNUCU</span>
+            <h2>Bağlantı ayarları</h2>
+            <p class="muted">Apps Script web app URL’ini gir. Furkinans bu adresle senkron olur ve Telegram durumunu oradan kontrol eder.</p>
           </div>
 
-          <div id="telegramStatusCard" class="telegram-status-card checking">
-            <span class="telegram-status-dot" aria-hidden="true"></span>
-            <div>
-              <strong id="telegramStatusTitle">Bağlantı kontrol ediliyor…</strong>
-              <span id="telegramStatusDetail">Sunucudan güncel durum alınıyor.</span>
+          <label class="field">
+            <span>Apps Script Web App URL</span>
+            <input id="backend-url" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+          </label>
+
+          <button id="save-connection" class="secondary-button" type="button">Bağlantı Ayarlarını Kaydet</button>
+
+          <div class="status-grid">
+            <div id="backend-status-card" class="status-card-shell checking">
+              <strong id="backend-status-title">Sunucu kontrol ediliyor…</strong>
+              <span id="backend-status-detail">Önce bir URL gir ve kaydet.</span>
+            </div>
+            <div id="telegram-status-card" class="status-card-shell checking">
+              <strong id="telegram-status-title">Telegram bağlantısı kontrol ediliyor…</strong>
+              <span id="telegram-status-detail">Sunucu üzerinden cihaz durumun alınacak.</span>
             </div>
           </div>
 
-          <div id="pairingControls" class="pairing-controls">
-            <p class="muted compact">Bağlı değilse aşağıdaki düğmeye bas. Telegram açılınca <strong>Başlat / Start</strong> düğmesine dokun.</p>
-            <div class="pair-code-box">
+          <div class="pair-box">
+            <div>
+              <span class="eyebrow">TELEGRAM</span>
+              <h3>Telegram’da bağla</h3>
+              <p class="muted">Bağlan düğmesi, botu seçip bu cihaza özel bağlantı kodunu gönderir.</p>
+            </div>
+            <div class="pair-code-chip">
               <span>Bağlantı kodu</span>
-              <strong id="pairCodeLabel">--------</strong>
+              <strong id="pair-code">--------</strong>
             </div>
-
-            <button id="pairTelegramButton" class="telegram-button" type="button">Telegram’da Bağla</button>
-            <button id="refreshPairCodeButton" class="secondary-button" type="button">Bağlantı Kodunu Yenile</button>
-          </div>
-
-          <div class="button-row">
-            <button id="testTelegramButton" class="secondary-button" type="button">Telegram Testi</button>
-          </div>
-
-          <div id="autoSyncCard" class="auto-sync-card" role="status" aria-live="polite">
-            <span class="auto-sync-dot" aria-hidden="true"></span>
-            <div>
-              <strong id="autoSyncTitle">Sunucu doğrulanıyor…</strong>
-              <span id="autoSyncDetail">Hazır olduğunda otomatik senkronizasyon başlayacak.</span>
+            <div class="button-row wrap">
+              <button id="pair-telegram" class="telegram-button" type="button">Telegram’da Bağla</button>
+              <button id="refresh-code" class="secondary-button" type="button">Bağlantı Kodunu Yenile</button>
+              <button id="test-telegram" class="secondary-button" type="button">Telegram Testi</button>
             </div>
           </div>
 
-          <div class="connection-info">
-            <span>Bu cihazın kimliği</span>
-            <code id="installationIdLabel"></code>
+          <div class="device-box">
+            <span>Cihaz kimliği</span>
+            <code id="installation-id"></code>
           </div>
-          <p id="telegramResult" class="result-text" role="status"></p>
-        </div>
 
-        <div class="card install-card">
-          <div>
-            <span class="eyebrow">IPHONE</span>
-            <h2>Ana ekrana ekle</h2>
-            <p class="muted">Safari’de Paylaş düğmesine basıp “Ana Ekrana Ekle” seçeneğini kullan. Furkinans ayrı bir uygulama gibi açılır.</p>
-          </div>
+          <div id="connection-feedback" class="info-card">Bağlantı bilgileri kaydedilmedi.</div>
         </div>
       </section>
     </main>
 
-    <button id="addRecordButton" class="fab" type="button">＋ Yeni Kayıt</button>
+    <button id="add-record" class="fab" type="button">＋ Yeni Kayıt</button>
   </div>
 
-  <div id="editorOverlay" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
-    <div class="modal-sheet">
-      <div class="modal-header">
+  <div id="editor-modal" class="overlay hidden" aria-hidden="true">
+    <div class="sheet">
+      <div class="sheet-head">
         <div>
           <span class="eyebrow">KAYIT</span>
-          <h2 id="editorTitle">Yeni Kayıt</h2>
+          <h3 id="editor-title">Yeni Kayıt</h3>
         </div>
-        <button id="closeEditorButton" class="icon-button" type="button" aria-label="Kapat">×</button>
+        <button id="close-editor" class="icon-button" type="button" aria-label="Kapat">×</button>
       </div>
 
       <label class="field">
-        <span>Hesap / ödeme adı</span>
-        <input id="accountInput" type="text" maxlength="80" placeholder="Örn. Akbank Kredi Kartı" />
+        <span>Hesap adı</span>
+        <input id="record-name" type="text" maxlength="80" placeholder="Örn. Su Faturası">
       </label>
 
-      <label class="field">
-        <span>Tarih türü</span>
-        <select id="dateTypeInput">
-          <option value="due">Son Ödeme</option>
-          <option value="statement">Hesap Kesim</option>
-        </select>
-      </label>
+      <div class="grid-2">
+        <label class="field">
+          <span>Tarih türü</span>
+          <select id="record-date-type">
+            <option value="due">Son Ödeme</option>
+            <option value="statement">Hesap Kesim</option>
+          </select>
+        </label>
 
-      <label class="field">
-        <span>Tarih</span>
-        <input id="dateInput" type="date" />
-      </label>
+        <label class="field">
+          <span>Tarih</span>
+          <input id="record-date" type="date">
+        </label>
+      </div>
 
       <label class="field">
         <span>Açıklama</span>
-        <textarea id="descriptionInput" rows="4" maxlength="240" placeholder="İstersen kısa bir not ekle"></textarea>
+        <textarea id="record-description" rows="4" maxlength="240" placeholder="İstersen kısa not ekle"></textarea>
       </label>
 
-      <label class="payment-toggle-field">
-        <input id="paidInput" type="checkbox" />
-        <span class="payment-toggle-ui" aria-hidden="true"></span>
-        <span class="payment-toggle-copy">
-          <strong>Ödeme yapıldı</strong>
-          <small>İşaretlediğinde bu kayıt için Telegram hatırlatmaları durur.</small>
+      <label class="toggle-row">
+        <input id="record-paid" type="checkbox">
+        <span class="toggle-ui"></span>
+        <span class="toggle-copy">
+          <strong>Ödendi olarak işaretle</strong>
+          <small>İşaretlenirse bu kayıt için günlük hatırlatmalar durur.</small>
         </span>
       </label>
 
-      <p id="editorError" class="error-text" role="alert"></p>
+      <div id="editor-error" class="error-text"></div>
 
-      <div class="button-row modal-actions">
-        <button id="deleteRecordButton" class="danger-button hidden" type="button">Sil</button>
-        <button id="saveRecordButton" class="primary-button grow" type="button">Kaydet</button>
+      <div class="button-row">
+        <button id="delete-record" class="danger-button hidden" type="button">Sil</button>
+        <button id="save-record" class="primary-button grow" type="button">Kaydet</button>
       </div>
     </div>
   </div>
 
-  <script src="app.js"></script>
-  <script src="status.js"></script>
-  <script src="pro-ui.js"></script>
-  <script src="tabs-v2.js"></script>
+  <div id="confirm-modal" class="overlay hidden" aria-hidden="true">
+    <div class="sheet compact-sheet">
+      <div class="stack-gap">
+        <div>
+          <span class="eyebrow">SİL</span>
+          <h3>Kaydı silmek istiyor musun?</h3>
+          <p class="muted">Bu kayıt listeden kaldırılacak. İstersen yeniden ekleyebilirsin.</p>
+        </div>
+        <div class="button-row">
+          <button id="confirm-cancel" class="secondary-button grow" type="button">Vazgeç</button>
+          <button id="confirm-delete" class="danger-button grow" type="button">Evet, Sil</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="./app.js"></script>
 </body>
 </html>
