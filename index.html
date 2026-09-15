@@ -265,6 +265,27 @@
 
   <div id="toast" class="toast hidden"></div>
 
+  <script>
+    (() => {
+      const url = 'https://script.google.com/macros/s/AKfycby_UhUPM0hRMEm-2d2UQE-PzWdH1QRd4eLxwZpAgrk9tN4aG5rLZcvoUEY1PMQGEGuuDQ/exec';
+      const oldUrls = [
+        'https://script.google.com/macros/s/AKfycbx2mm0fCPOjyUz3zGad2ltU3sQSe_6-hLWr7vJPT6OIJQu1vGZydgYadawNpen9_2vY/exec',
+        'https://script.google.com/macros/s/AKfycbxFU_W3cG09demXHXANalKYOyxp7Xte_0XONRyhJZ-30QB26LCvqXw6ygYWnCBEuxiK/exec'
+      ];
+      const patchKey = (key) => {
+        try {
+          const raw = localStorage.getItem(key);
+          const data = raw ? JSON.parse(raw) : {};
+          data.settings = data.settings || {};
+          const current = String(data.settings.backend_url || '').replace(/\/+$/, '');
+          if (!current || oldUrls.includes(current)) data.settings.backend_url = url;
+          localStorage.setItem(key, JSON.stringify(data));
+        } catch (_) {}
+      };
+      patchKey('furkinans_v1_0');
+      if (localStorage.getItem('furkinans_pwa_v1')) patchKey('furkinans_pwa_v1');
+    })();
+  </script>
   <script src="./app.js"></script>
 </body>
 </html>
