@@ -1,5 +1,5 @@
-/** Furkinans Backend v1.2 — Google Apps Script */
-const FURKINANS_VERSION = '1.2';
+/** Furkinans Backend v1.3 — Google Apps Script */
+const FURKINANS_VERSION = '1.3';
 const TZ = 'Europe/Istanbul';
 const USERS_SHEET = 'Users';
 const RECORDS_SHEET = 'Records';
@@ -22,7 +22,7 @@ function setupFurkinansV1() {
   ensureDatabase_();
   ensureMinuteTrigger_();
   initializeTelegramOffset_();
-  console.log('Furkinans v1.2 hazır: ' + getDatabase_().getUrl());
+  console.log('Furkinans v1.3 hazır: ' + getDatabase_().getUrl());
 }
 
 function doGet(e) {
@@ -75,6 +75,19 @@ function doPost(e) {
       if (!chatId) return json_({ ok: false, error: 'telegram_not_linked' });
       const sent = sendTelegram_(chatId, '✅ Furkinans test mesajı\n\nBu cihaz için Telegram bağlantısı çalışıyor.');
       return json_({ ok: sent, action: 'test', error: sent ? '' : 'telegram_send_failed' });
+    }
+
+    if (action === 'general_preview') {
+      const user = verifyUser_(body.installation_id, body.device_secret);
+      const result = sendGeneralPreview_(String(body.installation_id || ''), user.values);
+      return json_({
+        ok: result.sent,
+        action: 'general_preview',
+        window_count: result.window_count,
+        unpaid_count: result.unpaid_count,
+        invalid_date_count: result.invalid_date_count,
+        error: result.sent ? '' : 'telegram_send_failed'
+      });
     }
 
     return json_({ ok: false, error: 'unknown_action' });
@@ -141,6 +154,7 @@ function replaceRecords_(sheet, installationId, incoming) {
     const name = String(r && r.account_name || '').trim();
     const date = isoDate_(r && r.date);
     if (!id || !name || !date) return;
+
     rows.push([
       installationId,
       id,
@@ -155,7 +169,12 @@ function replaceRecords_(sheet, installationId, incoming) {
   });
 
   sheet.clearContents();
-  sheet.getRange(1, 1, rows.length, RECORD_HEADERS.length).setValues(rows);
+  sheet.getRange(1, 1, 1, RECORD_HEADERS.length).setValues([RECORD_HEADERS]);
+  if (rows.length > 1) {
+    sheet.getRange(2, 5, rows.length - 1, 1).setNumberFormat('@');
+    sheet.getRange(2, 8, rows.length - 1, 1).setNumberFormat('@');
+    sheet.getRange(2, 1, rows.length - 1, RECORD_HEADERS.length).setValues(rows.slice(1));
+  }
   sheet.setFrozenRows(1);
 }
 
@@ -165,30 +184,29 @@ function getPublicStatus_(installationIdValue) {
 
   const ss = ensureDatabase_();
   const users = ss.getSheetByName(USERS_SHEET).getDataRange().getValues();
-  const records = ss.getSheetByName(RECORDS_SHEET).getDataRange().getValues();
+  const recordsValues = ss.getSheetByName(RECORDS_SHEET).getDataRange().getValues();
   const row = findRow_(users, 0, installationId);
-  let recordCount = 0;
-  let unpaidCount = 0;
+  const all = recordsForInstallation_(recordsValues, installationId);
+  const unpaid = all.filter(function(r) { return !r.paid; });
+  const invalidDateCount = unpaid.filter(function(r) { return !r.date; }).length;
   const recordById = {};
 
-  for (let i = 1; i < records.length; i++) {
-    if (String(records[i][0] || '') !== installationId) continue;
-    recordCount++;
-    const recordId = String(records[i][1] || '').trim();
-    const paid = truthy_(records[i][6]);
-    if (!paid) unpaidCount++;
-    if (recordId) recordById[recordId] = { paid: paid };
-  }
+  all.forEach(function(r) {
+    recordById[r.record_id] = { paid: r.paid };
+  });
 
   const triggerReady = hasReminderTrigger_();
+
   if (row < 0) return {
     ok: true,
     version: FURKINANS_VERSION,
     found: false,
     telegram_linked: false,
     enabled: false,
-    record_count: recordCount,
-    unpaid_count: unpaidCount,
+    record_count: all.length,
+    unpaid_count: unpaid.length,
+    window_count: 0,
+    invalid_date_count: invalidDateCount,
     followup_count: 0,
     reminder_trigger_ready: triggerReady,
     server_time: dateTime_(new Date()),
@@ -196,6 +214,10 @@ function getPublicStatus_(installationIdValue) {
   };
 
   const u = users[row];
+  const lookahead = int_(u[11],1,60,7);
+  const lookback = int_(u[12],0,60,2);
+  const today = dateOnly_(new Date());
+  const windowRecords = filterWindowRecords_(all, today, lookback, lookahead);
   const followState = parseWeeklyState_(u[16]);
   const activeFollowupCount = followState.ids.filter(function(id) {
     return recordById[id] && !recordById[id].paid;
@@ -210,13 +232,15 @@ function getPublicStatus_(installationIdValue) {
     weekday: int_(u[8],0,6,6),
     hour: int_(u[9],0,23,12),
     minute: int_(u[10],0,59,0),
-    lookahead_days: int_(u[11],1,60,7),
-    lookback_days: int_(u[12],0,60,2),
+    lookahead_days: lookahead,
+    lookback_days: lookback,
     daily_hour: int_(u[13],0,23,22),
     daily_minute: int_(u[14],0,59,0),
     updated_at: String(u[15] || ''),
-    record_count: recordCount,
-    unpaid_count: unpaidCount,
+    record_count: all.length,
+    unpaid_count: unpaid.length,
+    window_count: windowRecords.length,
+    invalid_date_count: invalidDateCount,
     last_general_notification: followState.date,
     followup_count: activeFollowupCount,
     reminder_trigger_ready: triggerReady,
@@ -246,17 +270,10 @@ function sendScheduledReminders_() {
 
   for (let i = 1; i < records.length; i++) {
     const installationId = String(records[i][0] || '').trim();
-    const recordId = String(records[i][1] || '').trim();
-    if (!installationId || !recordId) continue;
+    if (!installationId) continue;
     if (!byUser[installationId]) byUser[installationId] = [];
-    byUser[installationId].push({
-      record_id: recordId,
-      account_name: String(records[i][2] || ''),
-      date_type: String(records[i][3] || 'due'),
-      date: isoDate_(records[i][4]),
-      description: String(records[i][5] || ''),
-      paid: truthy_(records[i][6])
-    });
+    const parsed = recordFromRow_(records[i]);
+    if (parsed) byUser[installationId].push(parsed);
   }
 
   const now = new Date();
@@ -283,11 +300,9 @@ function sendScheduledReminders_() {
       let followState = parseWeeklyState_(u[16]);
 
       if (weekday === weeklyDay && dueMinute_(currentMinute, weeklyMinute) && followState.date !== today) {
-        const windowRecords = all.filter(function(r) {
-          if (r.paid || !r.date) return false;
-          const d = diffDays_(today, r.date);
-          return isFinite(d) && d >= -lookback && d <= lookahead;
-        });
+        const windowRecords = filterWindowRecords_(all, today, lookback, lookahead);
+        const unpaidRecords = all.filter(function(r) { return !r.paid; });
+        const invalidDateCount = unpaidRecords.filter(function(r) { return !r.date; }).length;
 
         const previousActiveIds = followState.ids.filter(function(id) {
           const r = recordById[id];
@@ -299,7 +314,7 @@ function sendScheduledReminders_() {
         currentWindowIds.forEach(function(id) { currentWindowMap[id] = true; });
         const carriedCount = previousActiveIds.filter(function(id) { return !currentWindowMap[id]; }).length;
 
-        if (sendTelegram_(chatId, weeklyMessage_(windowRecords, lookahead, lookback, today, carriedCount))) {
+        if (sendTelegram_(chatId, weeklyMessage_(windowRecords, lookahead, lookback, today, carriedCount, unpaidRecords.length, invalidDateCount, false))) {
           followState = { date: today, ids: followupIds };
           usersSheet.getRange(i + 1, 17).setValue(encodeWeeklyState_(today, followupIds));
         }
@@ -328,20 +343,29 @@ function sendScheduledReminders_() {
   }
 }
 
-function weeklyMessage_(records, lookahead, lookback, today, carriedCount) {
+function weeklyMessage_(records, lookahead, lookback, today, carriedCount, unpaidCount, invalidDateCount, preview) {
   const lines = [
-    '📌 Furkinans genel ödeme bildirimi',
+    preview ? '🧪 Furkinans genel bildirim önizlemesi' : '📌 Furkinans genel ödeme bildirimi',
     '',
     'Geçmiş ' + lookback + ' gün / gelecek ' + lookahead + ' gün:',
     ''
   ];
 
   if (!records.length) {
-    lines.push('Bu aralıkta bekleyen ödeme görünmüyor.');
+    if (unpaidCount > 0) {
+      lines.push('Seçilen tarih aralığına giren bekleyen ödeme bulunamadı.');
+      lines.push('Sunucudaki toplam bekleyen ödeme: ' + unpaidCount);
+      if (invalidDateCount > 0) {
+        lines.push('Tarihi okunamayan bekleyen kayıt: ' + invalidDateCount);
+      }
+    } else {
+      lines.push('Sunucuda bekleyen ödeme bulunmuyor.');
+    }
   } else {
     records.sort(function(a,b){ return a.date.localeCompare(b.date); });
-    lines.push('Bekleyen ödeme: ' + records.length);
+    lines.push('Bu aralıktaki bekleyen ödeme: ' + records.length);
     lines.push('');
+
     records.forEach(function(r) {
       const d = diffDays_(today, r.date);
       lines.push('• ' + r.account_name + ' — ' + prettyType_(r.date_type) + ': ' + prettyDate_(r.date) + ' (' + relativeLabel_(d) + ')');
@@ -354,8 +378,14 @@ function weeklyMessage_(records, lookahead, lookback, today, carriedCount) {
     lines.push('↻ Önceki genel bildirimlerden ödenmemiş ' + carriedCount + ' kayıt günlük takipte kalıyor.');
   }
 
-  lines.push('');
-  lines.push('Bu bildirimdeki ödenmemiş kayıtlar, yarından itibaren günlük bildirim saatinde ödeme yapılana kadar hatırlatılır.');
+  if (preview) {
+    lines.push('');
+    lines.push('Bu bir önizlemedir; günlük takip havuzunu değiştirmez.');
+  } else {
+    lines.push('');
+    lines.push('Bu bildirimdeki ödenmemiş kayıtlar, yarından itibaren günlük bildirim saatinde ödeme yapılana kadar hatırlatılır.');
+  }
+
   return lines.join('\n');
 }
 
@@ -373,6 +403,68 @@ function dailyMessage_(records, today) {
   });
   lines.push('', 'Ödeme yapınca uygulamada durumu Ödendi olarak değiştir.');
   return lines.join('\n');
+}
+
+function sendGeneralPreview_(installationIdValue, userValues) {
+  const installationId = installationId_(installationIdValue);
+  if (!installationId) return { sent: false, window_count: 0, unpaid_count: 0, invalid_date_count: 0 };
+
+  const chatId = String(userValues[2] || '').trim();
+  if (!chatId) return { sent: false, window_count: 0, unpaid_count: 0, invalid_date_count: 0 };
+
+  const recordsValues = ensureDatabase_().getSheetByName(RECORDS_SHEET).getDataRange().getValues();
+  const all = recordsForInstallation_(recordsValues, installationId);
+  const today = dateOnly_(new Date());
+  const lookahead = int_(userValues[11],1,60,7);
+  const lookback = int_(userValues[12],0,60,2);
+  const windowRecords = filterWindowRecords_(all, today, lookback, lookahead);
+  const unpaidRecords = all.filter(function(r) { return !r.paid; });
+  const invalidDateCount = unpaidRecords.filter(function(r) { return !r.date; }).length;
+
+  const sent = sendTelegram_(
+    chatId,
+    weeklyMessage_(windowRecords, lookahead, lookback, today, 0, unpaidRecords.length, invalidDateCount, true)
+  );
+
+  return {
+    sent: sent,
+    window_count: windowRecords.length,
+    unpaid_count: unpaidRecords.length,
+    invalid_date_count: invalidDateCount
+  };
+}
+
+function recordsForInstallation_(rows, installationId) {
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] || '').trim() !== installationId) continue;
+    const parsed = recordFromRow_(rows[i]);
+    if (parsed) out.push(parsed);
+  }
+  return out;
+}
+
+function recordFromRow_(row) {
+  const recordId = String(row[1] || '').trim();
+  const accountName = String(row[2] || '').trim();
+  if (!recordId || !accountName) return null;
+
+  return {
+    record_id: recordId,
+    account_name: accountName,
+    date_type: String(row[3] || 'due') === 'statement' ? 'statement' : 'due',
+    date: isoDate_(row[4]),
+    description: String(row[5] || ''),
+    paid: truthy_(row[6])
+  };
+}
+
+function filterWindowRecords_(records, today, lookback, lookahead) {
+  return (records || []).filter(function(r) {
+    if (r.paid || !r.date) return false;
+    const d = diffDays_(today, r.date);
+    return isFinite(d) && d >= -lookback && d <= lookahead;
+  });
 }
 
 function processTelegramPairingUpdates_() {
@@ -437,7 +529,7 @@ function getDatabase_() {
       console.warn('Eski DB açılamadı, yeni DB oluşturuluyor.');
     }
   }
-  const ss = SpreadsheetApp.create('Furkinans Database v1.2');
+  const ss = SpreadsheetApp.create('Furkinans Database v1.3');
   props.setProperty('FURKINANS_DB_ID', ss.getId());
   return ss;
 }
@@ -569,15 +661,41 @@ function randomPairCode_() {
 
 function isoDate_(v) {
   if (v === null || v === undefined || v === '') return '';
+
   if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v.getTime())) {
     return Utilities.formatDate(v, TZ, 'yyyy-MM-dd');
   }
+
+  if (typeof v === 'number' && isFinite(v)) {
+    if (v > 20000 && v < 80000) {
+      const ms = Date.UTC(1899, 11, 30) + Math.round(v * 86400000);
+      return Utilities.formatDate(new Date(ms), 'UTC', 'yyyy-MM-dd');
+    }
+  }
+
   const s = String(v).trim();
-  const match = s.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (match) return match[1];
+  if (!s) return '';
+
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:\D|$)/);
+  if (m) return validIsoParts_(Number(m[1]), Number(m[2]), Number(m[3]));
+
+  m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?:\D|$)/);
+  if (m) return validIsoParts_(Number(m[3]), Number(m[2]), Number(m[1]));
+
   const parsed = new Date(s);
-  if (!isNaN(parsed.getTime())) return Utilities.formatDate(parsed, TZ, 'yyyy-MM-dd');
+  if (!isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, TZ, 'yyyy-MM-dd');
+  }
+
   return '';
+}
+
+function validIsoParts_(year, month, day) {
+  if (!isFinite(year) || !isFinite(month) || !isFinite(day)) return '';
+  if (year < 1900 || year > 2200 || month < 1 || month > 12 || day < 1 || day > 31) return '';
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return '';
+  return String(year).padStart(4, '0') + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
 }
 
 function dateOnly_(d) {
