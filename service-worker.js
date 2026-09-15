@@ -1,13 +1,15 @@
-const CACHE = 'furkinans-pwa-v11';
+const CACHE = 'furkinans-pwa-v12';
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
   './status.css',
   './pro-ui.css',
+  './tabs-v2.css',
   './app.js',
   './status.js',
   './pro-ui.js',
+  './tabs-v2.js',
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',
@@ -20,8 +22,14 @@ function enhanceHtml(html) {
   if (!out.includes('pro-ui.css')) {
     out = out.replace('</head>', '  <link rel="stylesheet" href="pro-ui.css" />\n</head>');
   }
+  if (!out.includes('tabs-v2.css')) {
+    out = out.replace('</head>', '  <link rel="stylesheet" href="tabs-v2.css" />\n</head>');
+  }
   if (!out.includes('pro-ui.js')) {
     out = out.replace('</body>', '  <script src="pro-ui.js"></script>\n</body>');
+  }
+  if (!out.includes('tabs-v2.js')) {
+    out = out.replace('</body>', '  <script src="tabs-v2.js"></script>\n</body>');
   }
   return out;
 }
