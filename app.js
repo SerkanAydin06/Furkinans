@@ -17,7 +17,7 @@
     accountInput: $('accountInput'), dateTypeInput: $('dateTypeInput'), dateInput: $('dateInput'), descriptionInput: $('descriptionInput'),
     editorError: $('editorError'), deleteRecordButton: $('deleteRecordButton'), saveRecordButton: $('saveRecordButton'),
     weekdayInput: $('weekdayInput'), hourInput: $('hourInput'), minuteInput: $('minuteInput'), lookaheadInput: $('lookaheadInput'),
-    saveSettingsButton: $('saveSettingsButton'), testTelegramButton: $('testTelegramButton'), syncButton: $('syncButton'),
+    saveSettingsButton: $('saveSettingsButton'), testTelegramButton: $('testTelegramButton'),
     installationIdLabel: $('installationIdLabel'), pairCodeLabel: $('pairCodeLabel'), pairTelegramButton: $('pairTelegramButton'),
     refreshPairCodeButton: $('refreshPairCodeButton'), telegramResult: $('telegramResult')
   };
@@ -247,11 +247,11 @@
     data.settings.lookahead_days = clampInt(els.lookaheadInput.value, 1, 60, 7);
     saveData();
     loadSettingsUi();
-    showResult('Bildirim ayarları bu cihazda kaydedildi ve sunucuya gönderiliyor.', true);
-    syncAll({ quiet: true });
+    showResult('Bildirim ayarları kaydediliyor ve etkinleştiriliyor…', true);
+    syncAll({ quiet: true, activatePlan: true });
   }
 
-  function payload(action) {
+  function payload(action, { activatePlan = false } = {}) {
     const base = {
       action,
       installation_id: data.installation_id,
@@ -259,6 +259,7 @@
       pair_code: data.pair_code
     };
     if (action === 'sync') {
+      if (activatePlan) base.activate_plan = true;
       base.settings = {
         weekday: clampInt(data.settings.weekday, 0, 6, 6),
         hour: clampInt(data.settings.hour, 0, 23, 12),
@@ -270,12 +271,12 @@
     return base;
   }
 
-  async function postOpaque(action, { keepalive = false } = {}) {
+  async function postOpaque(action, { keepalive = false, activatePlan = false } = {}) {
     await fetch(SERVER_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify(payload(action)),
+      body: JSON.stringify(payload(action, { activatePlan })),
       cache: 'no-store',
       keepalive
     });
@@ -319,17 +320,40 @@
     }
   }
 
-  async function syncAll({ quiet = false } = {}) {
+  let syncInFlight = null;
+
+  async function syncAll({ quiet = false, activatePlan = false } = {}) {
+    if (!navigator.onLine) {
+      updateSyncBadge('Çevrimdışı');
+      window.dispatchEvent(new CustomEvent('furkinans:sync', { detail: { state: 'offline' } }));
+      return;
+    }
+
+    if (syncInFlight && !activatePlan) return syncInFlight;
+
+    const run = (async () => {
+      try {
+        if (!quiet) showResult('Değişiklikler otomatik olarak sunucuya gönderiliyor…');
+        updateSyncBadge('Senkron…');
+        window.dispatchEvent(new CustomEvent('furkinans:sync', { detail: { state: 'syncing' } }));
+        await postOpaque('sync', { activatePlan });
+        const now = Date.now();
+        localStorage.setItem(`${STORAGE_KEY}_last_sync`, String(now));
+        if (!quiet) showResult('Değişiklikler sunucuya gönderildi.', true);
+        updateSyncBadge('Güncel');
+        window.dispatchEvent(new CustomEvent('furkinans:sync', { detail: { state: 'synced', at: now } }));
+      } catch (err) {
+        if (!quiet) showResult(err.message || 'Otomatik senkronizasyon başarısız.', false);
+        updateSyncBadge(navigator.onLine ? 'Tekrar denenecek' : 'Çevrimdışı');
+        window.dispatchEvent(new CustomEvent('furkinans:sync', { detail: { state: 'error', message: String(err && err.message || err) } }));
+      }
+    })();
+
+    if (!activatePlan) syncInFlight = run;
     try {
-      if (!quiet) showResult('Kayıtlar sunucuya gönderiliyor…');
-      updateSyncBadge('Senkron…');
-      await postOpaque('sync');
-      if (!quiet) showResult('Senkronizasyon isteği gönderildi.', true);
-      updateSyncBadge('Senkron');
-      localStorage.setItem(`${STORAGE_KEY}_last_sync`, String(Date.now()));
-    } catch (err) {
-      if (!quiet) showResult(err.message || 'Senkronizasyon başarısız.', false);
-      updateSyncBadge(navigator.onLine ? 'Yerel' : 'Çevrimdışı');
+      return await run;
+    } finally {
+      if (syncInFlight === run) syncInFlight = null;
     }
   }
 
@@ -359,9 +383,15 @@
   els.pairTelegramButton.addEventListener('click', pairTelegram);
   els.refreshPairCodeButton.addEventListener('click', refreshPairCode);
   els.testTelegramButton.addEventListener('click', testTelegram);
-  els.syncButton.addEventListener('click', () => syncAll());
   window.addEventListener('online', () => { updateSyncBadge(); syncAll({ quiet: true }); });
-  window.addEventListener('offline', () => updateSyncBadge());
+  window.addEventListener('offline', () => {
+    updateSyncBadge();
+    window.dispatchEvent(new CustomEvent('furkinans:sync', { detail: { state: 'offline' } }));
+  });
+  window.addEventListener('focus', () => { if (navigator.onLine) syncAll({ quiet: true }); });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && navigator.onLine) syncAll({ quiet: true });
+  });
 
   renderRecords();
   loadSettingsUi();
