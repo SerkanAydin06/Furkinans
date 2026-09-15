@@ -1,14 +1,14 @@
-const CACHE = 'furkinans-pwa-v3';
+const CACHE = 'furkinans-pwa-v4';
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
-  './status.css',
   './app.js',
-  './status.js',
   './manifest.webmanifest',
-  './icon.svg',
-  './icons/icon-180.png'
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-512-maskable.png'
 ];
 
 self.addEventListener('install', (event) => {
