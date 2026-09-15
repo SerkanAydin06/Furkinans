@@ -1,9 +1,10 @@
-/** Furkinans Backend v1.1 — Google Apps Script */
-const FURKINANS_VERSION = '1.1';
+/** Furkinans Backend v1.2 — Google Apps Script */
+const FURKINANS_VERSION = '1.2';
 const TZ = 'Europe/Istanbul';
 const USERS_SHEET = 'Users';
 const RECORDS_SHEET = 'Records';
 const PAIR_TTL_MS = 30 * 60 * 1000;
+const DELIVERY_GRACE_MINUTES = 12;
 
 const USER_HEADERS = [
   'installation_id','device_secret_hash','telegram_chat_id','telegram_username','telegram_name',
@@ -21,7 +22,7 @@ function setupFurkinansV1() {
   ensureDatabase_();
   ensureMinuteTrigger_();
   initializeTelegramOffset_();
-  console.log('Furkinans v1.1 hazır: ' + getDatabase_().getUrl());
+  console.log('Furkinans v1.2 hazır: ' + getDatabase_().getUrl());
 }
 
 function doGet(e) {
@@ -29,11 +30,21 @@ function doGet(e) {
   try {
     const action = String(p.action || '');
     if (action === 'config') return output_(p.prefix, {
-      ok: true, service: 'Furkinans', version: FURKINANS_VERSION, bot_username: getBotUsername_()
+      ok: true,
+      service: 'Furkinans',
+      version: FURKINANS_VERSION,
+      bot_username: getBotUsername_(),
+      reminder_trigger_ready: hasReminderTrigger_(),
+      server_time: dateTime_(new Date())
     });
     if (action === 'status') return output_(p.prefix, getPublicStatus_(p.installation_id));
     return output_(p.prefix, {
-      ok: true, service: 'Furkinans', version: FURKINANS_VERSION, status: 'online', time: dateTime_(new Date())
+      ok: true,
+      service: 'Furkinans',
+      version: FURKINANS_VERSION,
+      status: 'online',
+      reminder_trigger_ready: hasReminderTrigger_(),
+      time: dateTime_(new Date())
     });
   } catch (err) {
     console.error(err && err.stack ? err.stack : err);
@@ -52,10 +63,12 @@ function doPost(e) {
     if (!text) return json_({ ok: false, error: 'empty_body' });
     const body = JSON.parse(text);
     const action = String(body.action || '');
+
     if (action === 'sync') {
       withLock_(15000, function() { syncPayload_(body); });
-      return json_({ ok: true, action: 'sync' });
+      return json_({ ok: true, action: 'sync', version: FURKINANS_VERSION, reminder_trigger_ready: hasReminderTrigger_() });
     }
+
     if (action === 'test') {
       const user = verifyUser_(body.installation_id, body.device_secret);
       const chatId = String(user.values[2] || '').trim();
@@ -63,6 +76,7 @@ function doPost(e) {
       const sent = sendTelegram_(chatId, '✅ Furkinans test mesajı\n\nBu cihaz için Telegram bağlantısı çalışıyor.');
       return json_({ ok: sent, action: 'test', error: sent ? '' : 'telegram_send_failed' });
     }
+
     return json_({ ok: false, error: 'unknown_action' });
   } catch (err) {
     console.error(err && err.stack ? err.stack : err);
@@ -106,25 +120,40 @@ function syncPayload_(body) {
   }
 
   replaceRecords_(records, installationId, Array.isArray(body.records) ? body.records : []);
+
+  try {
+    ensureMinuteTrigger_();
+  } catch (err) {
+    console.error('Reminder trigger could not be ensured: ' + String(err && err.message ? err.message : err));
+  }
 }
 
 function replaceRecords_(sheet, installationId, incoming) {
   const current = sheet.getDataRange().getValues();
   const rows = [RECORD_HEADERS];
+
   for (let i = 1; i < current.length; i++) {
     if (String(current[i][0] || '') !== installationId) rows.push(current[i]);
   }
+
   incoming.slice(0, 500).forEach(function(r) {
     const id = String(r && r.id || '').trim();
     const name = String(r && r.account_name || '').trim();
     const date = isoDate_(r && r.date);
     if (!id || !name || !date) return;
     rows.push([
-      installationId, id, name,
+      installationId,
+      id,
+      name,
       String(r.date_type || '') === 'statement' ? 'statement' : 'due',
-      date, String(r.description || '').trim(), boolInt_(r.paid, false), isoDate_(r.paid_at), String(r.updated_at || dateTime_(new Date()))
+      date,
+      String(r.description || '').trim(),
+      boolInt_(r.paid, false),
+      isoDate_(r.paid_at),
+      String(r.updated_at || dateTime_(new Date()))
     ]);
   });
+
   sheet.clearContents();
   sheet.getRange(1, 1, rows.length, RECORD_HEADERS.length).setValues(rows);
   sheet.setFrozenRows(1);
@@ -133,6 +162,7 @@ function replaceRecords_(sheet, installationId, incoming) {
 function getPublicStatus_(installationIdValue) {
   const installationId = installationId_(installationIdValue);
   if (!installationId) return { ok: false, error: 'invalid_installation_id', version: FURKINANS_VERSION };
+
   const ss = ensureDatabase_();
   const users = ss.getSheetByName(USERS_SHEET).getDataRange().getValues();
   const records = ss.getSheetByName(RECORDS_SHEET).getDataRange().getValues();
@@ -140,6 +170,7 @@ function getPublicStatus_(installationIdValue) {
   let recordCount = 0;
   let unpaidCount = 0;
   const recordById = {};
+
   for (let i = 1; i < records.length; i++) {
     if (String(records[i][0] || '') !== installationId) continue;
     recordCount++;
@@ -148,21 +179,49 @@ function getPublicStatus_(installationIdValue) {
     if (!paid) unpaidCount++;
     if (recordId) recordById[recordId] = { paid: paid };
   }
+
+  const triggerReady = hasReminderTrigger_();
   if (row < 0) return {
-    ok: true, version: FURKINANS_VERSION, found: false, telegram_linked: false, enabled: false,
-    record_count: recordCount, unpaid_count: unpaidCount, followup_count: 0, bot_username: getBotUsername_()
+    ok: true,
+    version: FURKINANS_VERSION,
+    found: false,
+    telegram_linked: false,
+    enabled: false,
+    record_count: recordCount,
+    unpaid_count: unpaidCount,
+    followup_count: 0,
+    reminder_trigger_ready: triggerReady,
+    server_time: dateTime_(new Date()),
+    bot_username: getBotUsername_()
   };
+
   const u = users[row];
   const followState = parseWeeklyState_(u[16]);
   const activeFollowupCount = followState.ids.filter(function(id) {
     return recordById[id] && !recordById[id].paid;
   }).length;
+
   return {
-    ok: true, version: FURKINANS_VERSION, found: true, telegram_linked: Boolean(String(u[2] || '').trim()), enabled: truthy_(u[7]),
-    weekday: int_(u[8],0,6,6), hour: int_(u[9],0,23,12), minute: int_(u[10],0,59,0),
-    lookahead_days: int_(u[11],1,60,7), lookback_days: int_(u[12],0,60,2), daily_hour: int_(u[13],0,23,22), daily_minute: int_(u[14],0,59,0),
-    updated_at: String(u[15] || ''), record_count: recordCount, unpaid_count: unpaidCount,
-    last_general_notification: followState.date, followup_count: activeFollowupCount, bot_username: getBotUsername_()
+    ok: true,
+    version: FURKINANS_VERSION,
+    found: true,
+    telegram_linked: Boolean(String(u[2] || '').trim()),
+    enabled: truthy_(u[7]),
+    weekday: int_(u[8],0,6,6),
+    hour: int_(u[9],0,23,12),
+    minute: int_(u[10],0,59,0),
+    lookahead_days: int_(u[11],1,60,7),
+    lookback_days: int_(u[12],0,60,2),
+    daily_hour: int_(u[13],0,23,22),
+    daily_minute: int_(u[14],0,59,0),
+    updated_at: String(u[15] || ''),
+    record_count: recordCount,
+    unpaid_count: unpaidCount,
+    last_general_notification: followState.date,
+    followup_count: activeFollowupCount,
+    reminder_trigger_ready: triggerReady,
+    server_time: dateTime_(new Date()),
+    bot_username: getBotUsername_()
   };
 }
 
@@ -223,8 +282,7 @@ function sendScheduledReminders_() {
 
       let followState = parseWeeklyState_(u[16]);
 
-      // GENEL BİLDİRİM: sadece seçilen gün ve tam seçilen dakika.
-      if (weekday === weeklyDay && currentMinute === weeklyMinute && followState.date !== today) {
+      if (weekday === weeklyDay && dueMinute_(currentMinute, weeklyMinute) && followState.date !== today) {
         const windowRecords = all.filter(function(r) {
           if (r.paid || !r.date) return false;
           const d = diffDays_(today, r.date);
@@ -247,17 +305,14 @@ function sendScheduledReminders_() {
         }
       }
 
-      // GÜNLÜK TAKİP: yalnızca son genel bildirim(ler)de takibe alınmış ve hâlâ ödenmemiş kayıtlar.
-      // Genel bildirimin geldiği gün günlük tekrar yok; takip ertesi günden başlar ve ödeme yapılana kadar sürer.
       const daysAfterGeneral = followState.date ? diffDays_(followState.date, today) : 0;
-      if (daysAfterGeneral > 0 && currentMinute === dailyMinute && String(u[17] || '') !== today) {
+      if (daysAfterGeneral > 0 && dueMinute_(currentMinute, dailyMinute) && String(u[17] || '') !== today) {
         const activeIds = followState.ids.filter(function(id) {
           const r = recordById[id];
           return r && !r.paid;
         });
         const dailyRecords = activeIds.map(function(id) { return recordById[id]; }).filter(Boolean);
 
-        // Ödenmiş veya silinmiş kayıtları takip havuzundan temizle.
         if (activeIds.length !== followState.ids.length) {
           followState = { date: followState.date, ids: activeIds };
           usersSheet.getRange(i + 1, 17).setValue(encodeWeeklyState_(followState.date, activeIds));
@@ -280,6 +335,7 @@ function weeklyMessage_(records, lookahead, lookback, today, carriedCount) {
     'Geçmiş ' + lookback + ' gün / gelecek ' + lookahead + ' gün:',
     ''
   ];
+
   if (!records.length) {
     lines.push('Bu aralıkta bekleyen ödeme görünmüyor.');
   } else {
@@ -292,10 +348,12 @@ function weeklyMessage_(records, lookahead, lookback, today, carriedCount) {
       if (r.description) lines.push('  ' + r.description);
     });
   }
+
   if (carriedCount > 0) {
     lines.push('');
     lines.push('↻ Önceki genel bildirimlerden ödenmemiş ' + carriedCount + ' kayıt günlük takipte kalıyor.');
   }
+
   lines.push('');
   lines.push('Bu bildirimdeki ödenmemiş kayıtlar, yarından itibaren günlük bildirim saatinde ödeme yapılana kadar hatırlatılır.');
   return lines.join('\n');
@@ -308,6 +366,7 @@ function dailyMessage_(records, today) {
     'Genel bildirimden kalan ödenmemiş ödeme: ' + records.length,
     ''
   ];
+
   records.sort(function(a,b){ return a.date.localeCompare(b.date); });
   records.forEach(function(r) {
     lines.push('• ' + r.account_name + ' — ' + prettyType_(r.date_type) + ': ' + prettyDate_(r.date) + ' (' + relativeLabel_(diffDays_(today, r.date)) + ')');
@@ -321,6 +380,7 @@ function processTelegramPairingUpdates_() {
   const offset = Number(props.getProperty('TELEGRAM_UPDATE_OFFSET') || '0');
   const data = telegramApi_('getUpdates?timeout=0&offset=' + offset);
   if (!data.ok || !Array.isArray(data.result)) return;
+
   const sheet = ensureDatabase_().getSheetByName(USERS_SHEET);
   const users = sheet.getDataRange().getValues();
   let nextOffset = offset;
@@ -337,12 +397,17 @@ function processTelegramPairingUpdates_() {
     for (let i = 1; i < users.length; i++) {
       if (code !== pairCode_(users[i][5]) || expired_(users[i][6])) continue;
       sheet.getRange(i + 1, 3, 1, 5).setValues([[
-        String(msg.chat.id), String(msg.from && msg.from.username || ''), String(msg.from && msg.from.first_name || ''), '', ''
+        String(msg.chat.id),
+        String(msg.from && msg.from.username || ''),
+        String(msg.from && msg.from.first_name || ''),
+        '',
+        ''
       ]]);
       sendTelegram_(String(msg.chat.id), '✅ Furkinans bağlantısı tamamlandı.\n\nBu Telegram hesabı artık bu cihazın bildirimlerini alacak.');
       break;
     }
   });
+
   props.setProperty('TELEGRAM_UPDATE_OFFSET', String(nextOffset));
 }
 
@@ -366,9 +431,13 @@ function getDatabase_() {
   const props = PropertiesService.getScriptProperties();
   const id = props.getProperty('FURKINANS_DB_ID');
   if (id) {
-    try { return SpreadsheetApp.openById(id); } catch (err) { console.warn('Eski DB açılamadı, yeni DB oluşturuluyor.'); }
+    try {
+      return SpreadsheetApp.openById(id);
+    } catch (err) {
+      console.warn('Eski DB açılamadı, yeni DB oluşturuluyor.');
+    }
   }
-  const ss = SpreadsheetApp.create('Furkinans Database v1.0');
+  const ss = SpreadsheetApp.create('Furkinans Database v1.2');
   props.setProperty('FURKINANS_DB_ID', ss.getId());
   return ss;
 }
@@ -376,14 +445,17 @@ function getDatabase_() {
 function ensureSheet_(ss, name, headers) {
   let sheet = ss.getSheetByName(name);
   if (!sheet) sheet = ss.insertSheet(name);
+
   if (!sheet.getLastRow()) {
     sheet.getRange(1,1,1,headers.length).setValues([headers]);
     sheet.setFrozenRows(1);
     return sheet;
   }
+
   const current = sheet.getRange(1,1,1,headers.length).getValues()[0];
   const compatible = headers.every(function(h,i){ return String(current[i] || '') === h; });
   if (compatible) return sheet;
+
   const stamp = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd_HHmmss');
   sheet.setName(name + '_Legacy_' + stamp);
   sheet = ss.insertSheet(name);
@@ -392,9 +464,31 @@ function ensureSheet_(ss, name, headers) {
   return sheet;
 }
 
+function hasReminderTrigger_() {
+  try {
+    return ScriptApp.getProjectTriggers().some(function(t) {
+      return t.getHandlerFunction() === 'checkReminders';
+    });
+  } catch (err) {
+    console.error('Trigger status check failed: ' + String(err && err.message ? err.message : err));
+    return false;
+  }
+}
+
 function ensureMinuteTrigger_() {
-  const exists = ScriptApp.getProjectTriggers().some(function(t){ return t.getHandlerFunction() === 'checkReminders'; });
-  if (!exists) ScriptApp.newTrigger('checkReminders').timeBased().everyMinutes(1).create();
+  const triggers = ScriptApp.getProjectTriggers().filter(function(t) {
+    return t.getHandlerFunction() === 'checkReminders';
+  });
+
+  if (!triggers.length) {
+    ScriptApp.newTrigger('checkReminders').timeBased().everyMinutes(1).create();
+    return true;
+  }
+
+  for (let i = 1; i < triggers.length; i++) {
+    try { ScriptApp.deleteTrigger(triggers[i]); } catch (_) {}
+  }
+  return true;
 }
 
 function initializeTelegramOffset_() {
@@ -409,7 +503,9 @@ function initializeTelegramOffset_() {
 function sendTelegram_(chatId, text) {
   const url = 'https://api.telegram.org/bot' + getBotToken_() + '/sendMessage';
   const response = UrlFetchApp.fetch(url, {
-    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    method: 'post',
+    contentType: 'application/json',
+    muteHttpExceptions: true,
     payload: JSON.stringify({ chat_id: chatId, text: text })
   });
   const data = JSON.parse(response.getContentText() || '{}');
@@ -430,25 +526,46 @@ function getBotToken_() {
   if (!token) throw new Error('missing_bot_token');
   return token;
 }
-function getBotUsername_() { return String(PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_USERNAME') || '').replace(/^@/, ''); }
+
+function getBotUsername_() {
+  return String(PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_USERNAME') || '').replace(/^@/, '');
+}
 
 function withLock_(timeout, fn) {
   const lock = LockService.getScriptLock();
   lock.waitLock(timeout);
-  try { return fn(); } finally { lock.releaseLock(); }
+  try {
+    return fn();
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function output_(prefix, obj) {
   const p = String(prefix || '').trim();
   if (/^[A-Za-z_$][A-Za-z0-9_$]{0,80}$/.test(p)) {
-    return ContentService.createTextOutput(p + '(' + JSON.stringify(obj) + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
+    return ContentService.createTextOutput(p + '(' + JSON.stringify(obj) + ');')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   return json_(obj);
 }
-function json_(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
-function installationId_(v) { const s = String(v || '').trim(); return /^[A-Za-z0-9_-]{8,120}$/.test(s) ? s : ''; }
-function pairCode_(v) { return String(v || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0,20); }
-function randomPairCode_() { return Utilities.getUuid().replace(/-/g,'').slice(0,8).toUpperCase(); }
+
+function json_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function installationId_(v) {
+  const s = String(v || '').trim();
+  return /^[A-Za-z0-9_-]{8,120}$/.test(s) ? s : '';
+}
+
+function pairCode_(v) {
+  return String(v || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0,20);
+}
+
+function randomPairCode_() {
+  return Utilities.getUuid().replace(/-/g,'').slice(0,8).toUpperCase();
+}
 
 function isoDate_(v) {
   if (v === null || v === undefined || v === '') return '';
@@ -463,23 +580,68 @@ function isoDate_(v) {
   return '';
 }
 
-function dateOnly_(d) { return Utilities.formatDate(d, TZ, 'yyyy-MM-dd'); }
-function dateTime_(d) { return Utilities.formatDate(d, TZ, "yyyy-MM-dd'T'HH:mm:ss"); }
-function prettyDate_(v) { const s = isoDate_(v); return s ? s.slice(8,10)+'.'+s.slice(5,7)+'.'+s.slice(0,4) : String(v || ''); }
-function prettyType_(v) { return String(v || '') === 'statement' ? 'Hesap Kesim' : 'Son Ödeme'; }
+function dateOnly_(d) {
+  return Utilities.formatDate(d, TZ, 'yyyy-MM-dd');
+}
+
+function dateTime_(d) {
+  return Utilities.formatDate(d, TZ, "yyyy-MM-dd'T'HH:mm:ss");
+}
+
+function prettyDate_(v) {
+  const s = isoDate_(v);
+  return s ? s.slice(8,10)+'.'+s.slice(5,7)+'.'+s.slice(0,4) : String(v || '');
+}
+
+function prettyType_(v) {
+  return String(v || '') === 'statement' ? 'Hesap Kesim' : 'Son Ödeme';
+}
+
 function diffDays_(fromIso, toIso) {
   const from = isoDate_(fromIso);
   const to = isoDate_(toIso);
   if (!from || !to) return NaN;
   return Math.round((new Date(to+'T00:00:00Z') - new Date(from+'T00:00:00Z')) / 86400000);
 }
-function mondayIndex_(d) { return Number(Utilities.formatDate(d, TZ, 'u')) - 1; }
-function relativeLabel_(d) { return d < 0 ? Math.abs(d)+' gün geçti' : d === 0 ? 'bugün' : d+' gün kaldı'; }
-function findRow_(rows, col, value) { for (let i=1;i<rows.length;i++) if (String(rows[i][col] || '') === value) return i; return -1; }
-function int_(v,min,max,fallback) { const n=Number(v); return isFinite(n) ? Math.min(max,Math.max(min,Math.round(n))) : fallback; }
-function truthy_(v) { return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true'; }
-function boolInt_(v,fallback) { return truthy_(v === undefined || v === null || v === '' ? fallback : v) ? 1 : 0; }
-function expired_(v) { const n=Number(v); if (isFinite(n) && n>0) return n < Date.now(); const d=new Date(String(v || '')); return isNaN(d.getTime()) || d.getTime() < Date.now(); }
+
+function dueMinute_(currentMinute, targetMinute) {
+  return currentMinute >= targetMinute && currentMinute <= targetMinute + DELIVERY_GRACE_MINUTES;
+}
+
+function mondayIndex_(d) {
+  return Number(Utilities.formatDate(d, TZ, 'u')) - 1;
+}
+
+function relativeLabel_(d) {
+  return d < 0 ? Math.abs(d)+' gün geçti' : d === 0 ? 'bugün' : d+' gün kaldı';
+}
+
+function findRow_(rows, col, value) {
+  for (let i=1;i<rows.length;i++) {
+    if (String(rows[i][col] || '') === value) return i;
+  }
+  return -1;
+}
+
+function int_(v,min,max,fallback) {
+  const n=Number(v);
+  return isFinite(n) ? Math.min(max,Math.max(min,Math.round(n))) : fallback;
+}
+
+function truthy_(v) {
+  return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+}
+
+function boolInt_(v,fallback) {
+  return truthy_(v === undefined || v === null || v === '' ? fallback : v) ? 1 : 0;
+}
+
+function expired_(v) {
+  const n=Number(v);
+  if (isFinite(n) && n>0) return n < Date.now();
+  const d=new Date(String(v || ''));
+  return isNaN(d.getTime()) || d.getTime() < Date.now();
+}
 
 function uniqueIds_(ids) {
   const seen = {};
@@ -501,7 +663,11 @@ function parseWeeklyState_(value) {
   const date = isoDate_(raw.slice(0, splitAt));
   const idsPart = raw.slice(splitAt + 1);
   const ids = idsPart ? idsPart.split(',').map(function(part) {
-    try { return decodeURIComponent(part); } catch (_) { return part; }
+    try {
+      return decodeURIComponent(part);
+    } catch (_) {
+      return part;
+    }
   }) : [];
   return { date: date, ids: uniqueIds_(ids) };
 }
@@ -514,5 +680,8 @@ function encodeWeeklyState_(date, ids) {
 
 function hash_(text) {
   const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8);
-  return bytes.map(function(b){ const n=(b+256)%256; return ('0'+n.toString(16)).slice(-2); }).join('');
+  return bytes.map(function(b) {
+    const n=(b+256)%256;
+    return ('0'+n.toString(16)).slice(-2);
+  }).join('');
 }
