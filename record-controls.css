@@ -1,11 +1,70 @@
 #view-records {
-  padding-bottom: 96px;
+  padding-bottom: 92px;
 }
 
+/* Compact finance dashboard */
+.records-hero {
+  padding: 14px 15px 15px;
+  margin-bottom: 14px;
+  border-radius: 22px;
+}
+
+.records-hero .panel-head {
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.records-hero .eyebrow {
+  margin-bottom: 2px;
+  font-size: 10.5px;
+  letter-spacing: .07em;
+}
+
+.records-hero h2 {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.records-hero .sync-pill {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.records-hero .stats-grid {
+  gap: 8px;
+}
+
+.records-hero .stat-card {
+  min-height: 72px;
+  padding: 10px 12px;
+  gap: 9px;
+  border-radius: 16px;
+}
+
+.records-hero .stat-icon {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+  border-radius: 12px;
+  font-size: 17px;
+}
+
+.records-hero .stat-card span {
+  font-size: 12px;
+}
+
+.records-hero .stat-card strong {
+  margin-top: 2px;
+  font-size: 26px;
+  line-height: 1;
+}
+
+/* Compact record cards */
 .record-card {
   position: relative;
-  border-radius: var(--radius-xl);
   overflow: visible;
+  border-radius: var(--radius-xl);
   touch-action: auto;
 }
 
@@ -16,8 +75,8 @@
 
 .record-shell {
   position: relative;
-  padding: 14px 16px 12px;
   min-height: 0 !important;
+  padding: 12px 13px 11px;
   display: block;
   transform: none !important;
   transition: none !important;
@@ -28,78 +87,94 @@
 }
 
 .record-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
-  flex-wrap: wrap;
+  align-items: center;
+  min-height: 42px;
 }
 
 .record-head > div:first-child {
+  grid-column: 1;
   min-width: 0;
+  width: 100%;
 }
 
 .record-label {
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  font-size: 10px;
 }
 
 .record-title {
   min-width: 0;
   margin: 0;
+  font-size: 20px;
   line-height: 1.08;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-chip {
-  flex: 0 0 auto;
-  min-width: 108px;
-  width: 108px;
-  min-height: 36px;
-  height: 36px;
-  padding: 0 10px;
+  grid-column: 2;
+  justify-self: start;
+  align-self: center !important;
+  min-width: 88px;
+  width: 96px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 9px;
   justify-content: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 5px;
+  font-size: 11.5px;
   white-space: nowrap;
-  align-self: flex-end;
 }
 
 .status-chip .arrow {
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .record-grid {
-  margin-top: 10px;
-  gap: 7px;
+  margin-top: 8px;
+  gap: 6px;
 }
 
 .record-info {
-  padding: 9px 10px;
-  border-radius: 14px;
+  min-width: 0;
+  padding: 8px 8px;
+  border-radius: 13px;
 }
 
 .record-info span {
   margin-bottom: 3px;
-  font-size: 10.5px;
+  font-size: 9.5px;
 }
 
 .record-info strong {
-  font-size: 12.5px;
-  line-height: 1.25;
   min-height: 0;
+  font-size: 11.5px;
+  line-height: 1.22;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
 
+/* Footer is visually moved into the right half of the top row. */
 .record-footer {
+  position: absolute;
+  top: 12px;
+  right: 13px;
+  width: calc(50% - 18px);
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border: 0;
   display: flex;
-  justify-content: flex-end;
   align-items: center;
-  margin-top: 7px;
-  padding-top: 7px;
-  min-height: 0;
-  border-top: 1px solid rgba(126,153,201,.10);
+  justify-content: flex-end;
+  pointer-events: none;
 }
 
 .record-state-note,
@@ -109,23 +184,24 @@
 }
 
 .record-delete-inline {
-  min-width: 72px;
+  pointer-events: auto;
+  min-width: 58px;
   height: 34px;
-  padding: 0 11px;
-  border-radius: 11px;
+  padding: 0 9px;
+  border-radius: 10px;
   border: 1px solid rgba(255,91,98,.30);
   background: rgba(255,91,98,.10);
   color: #ffb6ba;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 .record-delete-inline span {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -138,72 +214,110 @@
   bottom: calc(20px + env(safe-area-inset-bottom));
 }
 
-@media (max-width: 760px) {
-  .record-head {
-    flex-direction: row !important;
-    align-items: flex-end !important;
-    justify-content: flex-start;
-  }
-
-  .status-chip {
-    align-self: flex-end !important;
-    min-width: 104px;
-    width: 104px;
-  }
-}
-
 @media (max-width: 560px) {
   #view-records {
-    padding-bottom: 90px;
+    padding-bottom: 88px;
+  }
+
+  .records-hero {
+    padding: 12px 13px 13px;
+    margin-bottom: 12px;
+  }
+
+  .records-hero .panel-head {
+    margin-bottom: 8px;
+  }
+
+  .records-hero h2 {
+    font-size: 25px;
+  }
+
+  .records-hero .sync-pill {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .records-hero .stats-grid {
+    gap: 6px;
+  }
+
+  .records-hero .stat-card {
+    min-height: 62px;
+    padding: 8px 9px;
+    gap: 7px;
+    border-radius: 14px;
+  }
+
+  .records-hero .stat-icon {
+    width: 31px;
+    height: 31px;
+    flex-basis: 31px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+
+  .records-hero .stat-card span {
+    font-size: 10.5px;
+  }
+
+  .records-hero .stat-card strong {
+    font-size: 22px;
   }
 
   .record-shell {
     min-height: 0 !important;
-    padding: 12px 13px 10px;
+    padding: 11px 12px 10px;
   }
 
   .record-head {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
     gap: 8px;
+    align-items: center !important;
   }
 
   .record-title {
-    font-size: 21px;
+    font-size: 18px;
   }
 
   .status-chip {
-    min-width: 100px;
-    width: 100px;
-    height: 34px;
-    min-height: 34px;
-    padding: 0 9px;
-    font-size: 11.5px;
+    min-width: 82px;
+    width: 88px;
+    height: 32px;
+    min-height: 32px;
+    padding: 0 7px;
+    font-size: 10.5px;
   }
 
   .record-grid {
-    margin-top: 8px;
-    gap: 6px;
+    margin-top: 7px;
+    gap: 5px;
   }
 
   .record-info {
-    padding: 8px 7px;
+    padding: 7px 6px;
   }
 
   .record-info span {
-    font-size: 9.5px;
+    font-size: 9px;
   }
 
   .record-info strong {
-    font-size: 11.5px;
+    font-size: 11px;
   }
 
   .record-footer {
-    margin-top: 6px;
-    padding-top: 6px;
+    top: 11px;
+    right: 12px;
+    width: calc(50% - 16px);
+    height: 32px;
   }
 
   .record-delete-inline {
-    min-width: 68px;
+    min-width: 54px;
     height: 32px;
-    padding: 0 10px;
+    padding: 0 8px;
+    font-size: 10.5px;
   }
 }
