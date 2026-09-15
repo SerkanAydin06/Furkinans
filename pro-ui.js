@@ -4,6 +4,7 @@
   const STORAGE_KEY = 'furkinans_pwa_v1';
   const $ = (id) => document.getElementById(id);
   let decorating = false;
+  let pendingDeleteId = '';
 
   function readData() {
     try {
@@ -30,9 +31,9 @@
   }
 
   function recordState(record) {
-    if (record.paid) return { label: 'Ödendi', tone: 'paid', rank: 2 };
-    if (isOverdue(record)) return { label: 'Gecikti', tone: 'overdue', rank: 0 };
-    return { label: 'Bekliyor', tone: 'pending', rank: 1 };
+    if (record.paid) return { label: 'Ödendi', tone: 'paid', rank: 2, icon: '✓' };
+    if (isOverdue(record)) return { label: 'Gecikti', tone: 'overdue', rank: 0, icon: '!' };
+    return { label: 'Bekliyor', tone: 'pending', rank: 1, icon: '○' };
   }
 
   function sourceSort(records) {
@@ -92,27 +93,35 @@
   }
 
   function applySettingsDesign() {
-    const view = $('settingsView');
-    if (!view) return;
-    const cards = Array.from(view.querySelectorAll(':scope > .card.stack'));
-    if (cards[0]) {
-      cards[0].classList.add('notification-settings-card');
-      const eyebrow = cards[0].querySelector('.eyebrow');
-      const title = cards[0].querySelector('h2');
-      if (eyebrow) eyebrow.textContent = 'BİLDİRİM PLANI';
-      if (title) title.textContent = 'Hatırlatma Ayarları';
+    const notificationView = $('settingsView');
+    const connectionView = $('connectionsView');
+
+    if (notificationView) {
+      const cards = Array.from(notificationView.querySelectorAll(':scope > .card.stack'));
+      if (cards[0]) {
+        cards[0].classList.add('notification-settings-card');
+        const eyebrow = cards[0].querySelector('.eyebrow');
+        const title = cards[0].querySelector('h2');
+        if (eyebrow) eyebrow.textContent = 'BİLDİRİM PLANI';
+        if (title) title.textContent = 'Bildirim Ayarları';
+      }
     }
-    if (cards[1]) {
-      cards[1].classList.add('telegram-settings-card');
-      const title = cards[1].querySelector('h2');
-      if (title) title.textContent = 'Telegram Bağlantısı';
+
+    if (connectionView) {
+      const card = connectionView.querySelector('.card.stack');
+      if (card) {
+        card.classList.add('telegram-settings-card');
+        const title = card.querySelector('h2');
+        if (title) title.textContent = 'Bağlantı Ayarları';
+      }
     }
   }
 
   function togglePaid(recordId) {
     const data = readData();
-    const index = data.records.findIndex((r) => r.id === recordId);
+    const index = data.records.findIndex((r) => String(r.id) === String(recordId));
     if (index < 0) return;
+
     const next = !Boolean(data.records[index].paid);
     data.records[index] = {
       ...data.records[index],
@@ -123,14 +132,173 @@
     location.reload();
   }
 
-  function deleteRecord(recordId) {
+  function ensureDeleteConfirm() {
+    if ($('proDeleteConfirm')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'proDeleteConfirm';
+    overlay.className = 'pro-delete-confirm hidden';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'proDeleteConfirmTitle');
+    overlay.innerHTML = `
+      <div class="pro-delete-sheet">
+        <div class="pro-delete-icon">−</div>
+        <div class="pro-delete-copy">
+          <span class="eyebrow">KAYDI SİL</span>
+          <h3 id="proDeleteConfirmTitle">Bu kaydı silmek istiyor musun?</h3>
+          <p id="proDeleteConfirmDetail">Bu işlem geri alınamaz.</p>
+        </div>
+        <div class="pro-delete-buttons">
+          <button id="proDeleteCancel" type="button" class="pro-delete-cancel">Vazgeç</button>
+          <button id="proDeleteApprove" type="button" class="pro-delete-approve">Sil</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    $('proDeleteCancel').addEventListener('click', closeDeleteConfirm);
+    $('proDeleteApprove').addEventListener('click', confirmDelete);
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closeDeleteConfirm();
+    });
+  }
+
+  function openDeleteConfirm(recordId) {
     const data = readData();
-    const record = data.records.find((r) => r.id === recordId);
-    const label = record && record.account_name ? `“${record.account_name}” kaydını silmek istiyor musun?` : 'Bu kaydı silmek istiyor musun?';
-    if (!confirm(label)) return;
-    data.records = data.records.filter((r) => r.id !== recordId);
+    const record = data.records.find((r) => String(r.id) === String(recordId));
+    if (!record) return;
+
+    pendingDeleteId = String(recordId);
+    const title = $('proDeleteConfirmTitle');
+    const detail = $('proDeleteConfirmDetail');
+    if (title) title.textContent = `“${record.account_name || 'Kayıt'}” silinsin mi?`;
+    if (detail) detail.textContent = 'Kayıt ve bu kayda ait hatırlatmalar kalıcı olarak kaldırılır.';
+    $('proDeleteConfirm').classList.remove('hidden');
+  }
+
+  function closeDeleteConfirm() {
+    pendingDeleteId = '';
+    const overlay = $('proDeleteConfirm');
+    if (overlay) overlay.classList.add('hidden');
+    closeOpenSwipes();
+  }
+
+  function confirmDelete() {
+    if (!pendingDeleteId) return;
+    const data = readData();
+    data.records = data.records.filter((r) => String(r.id) !== pendingDeleteId);
     writeData(data);
+    pendingDeleteId = '';
     location.reload();
+  }
+
+  function closeOpenSwipes(except = null) {
+    document.querySelectorAll('.pro-record.is-swipe-open').forEach((card) => {
+      if (card !== except) setSwipeOpen(card, false);
+    });
+  }
+
+  function setSwipePosition(card, x, animate = false) {
+    const shell = card.querySelector('.pro-swipe-shell');
+    if (!shell) return;
+    shell.style.transition = animate ? 'transform .22s cubic-bezier(.2,.8,.2,1)' : 'none';
+    shell.style.transform = `translate3d(${x}px,0,0)`;
+    card.dataset.swipeX = String(x);
+  }
+
+  function setSwipeOpen(card, open) {
+    const width = Number(card.dataset.swipeWidth || 100);
+    if (open) closeOpenSwipes(card);
+    card.classList.toggle('is-swipe-open', open);
+    setSwipePosition(card, open ? -width : 0, true);
+  }
+
+  function enableSwipe(card, recordId) {
+    const shell = card.querySelector('.pro-swipe-shell');
+    const deleteButton = card.querySelector('.pro-swipe-delete');
+    if (!shell || !deleteButton) return;
+
+    const swipeWidth = 104;
+    card.dataset.swipeWidth = String(swipeWidth);
+
+    let startX = 0;
+    let startY = 0;
+    let startOffset = 0;
+    let dragging = false;
+    let horizontal = false;
+    let moved = false;
+
+    const point = (event) => {
+      const touch = event.touches && event.touches[0] ? event.touches[0] : (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0] : event);
+      return { x: touch.clientX, y: touch.clientY };
+    };
+
+    card.addEventListener('touchstart', (event) => {
+      if (!event.touches || event.touches.length !== 1) return;
+      const p = point(event);
+      startX = p.x;
+      startY = p.y;
+      startOffset = card.classList.contains('is-swipe-open') ? -swipeWidth : 0;
+      dragging = true;
+      horizontal = false;
+      moved = false;
+      card.classList.add('dragging');
+      closeOpenSwipes(card);
+    }, { passive: true });
+
+    card.addEventListener('touchmove', (event) => {
+      if (!dragging) return;
+      const p = point(event);
+      const dx = p.x - startX;
+      const dy = p.y - startY;
+
+      if (!horizontal && Math.abs(dx) > 8) {
+        if (Math.abs(dx) > Math.abs(dy) * 1.15) horizontal = true;
+        else return;
+      }
+      if (!horizontal) return;
+
+      moved = moved || Math.abs(dx) > 10;
+      let next = startOffset + dx;
+      next = Math.max(-swipeWidth, Math.min(0, next));
+      event.preventDefault();
+      setSwipePosition(card, next, false);
+    }, { passive: false });
+
+    const finish = () => {
+      if (!dragging) return;
+      dragging = false;
+      card.classList.remove('dragging');
+      const finalX = Number(card.dataset.swipeX || 0);
+      setSwipeOpen(card, finalX <= -(swipeWidth * 0.42));
+      if (moved) {
+        card.dataset.swipeGuard = '1';
+        setTimeout(() => { delete card.dataset.swipeGuard; }, 350);
+      }
+    };
+
+    card.addEventListener('touchend', finish);
+    card.addEventListener('touchcancel', finish);
+
+    card.addEventListener('click', (event) => {
+      if (card.dataset.swipeGuard === '1') {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (card.classList.contains('is-swipe-open') && !event.target.closest('.pro-swipe-delete') && !event.target.closest('.pro-state-chip')) {
+        event.preventDefault();
+        event.stopPropagation();
+        setSwipeOpen(card, false);
+      }
+    }, true);
+
+    deleteButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openDeleteConfirm(recordId);
+    });
   }
 
   function buildCard(record, row) {
@@ -150,7 +318,10 @@
           <span class="pro-kicker">HESAP</span>
           <strong class="pro-account-title">${escapeHtml(record.account_name || '—')}</strong>
         </div>
-        <span class="pro-state-chip ${state.tone}">${state.label}</span>
+        <button type="button" class="pro-state-chip pro-state-button ${state.tone}" aria-label="${record.paid ? 'Bekliyor yap' : 'Ödendi yap'}">
+          <span class="pro-state-icon">${state.icon}</span>
+          <span>${state.label}</span>
+        </button>
       </div>
       <div class="pro-info-grid">
         <div class="pro-info-block type-${record.date_type === 'statement' ? 'statement' : 'due'}">
@@ -166,33 +337,31 @@
           <strong>${escapeHtml(record.description || 'Açıklama girilmedi')}</strong>
         </div>
         ${record.paid && record.paid_at ? `<div class="pro-paid-note">✓ Ödeme tarihi: ${formatDate(String(record.paid_at).slice(0, 10))}</div>` : ''}
+      </div>
+      <div class="pro-record-footer">
+        <span class="pro-swipe-hint"><span aria-hidden="true">←</span> Sola kaydırarak sil</span>
+        <span class="pro-edit-hint">Kartı açmak için dokun</span>
       </div>`;
 
-    const actions = document.createElement('div');
-    actions.className = 'pro-record-actions';
+    const statusButton = row.querySelector('.pro-state-button');
+    if (statusButton) {
+      statusButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        togglePaid(record.id);
+      });
+    }
 
-    const paidButton = document.createElement('button');
-    paidButton.type = 'button';
-    paidButton.className = `pro-action pro-action-paid ${record.paid ? 'active' : ''}`;
-    paidButton.innerHTML = `<span>${record.paid ? '✓' : '+'}</span><small>${record.paid ? 'Ödendi' : 'Öde'}</small>`;
-    paidButton.setAttribute('aria-label', record.paid ? 'Bekliyor yap' : 'Ödendi yap');
-    paidButton.addEventListener('click', (event) => {
-      event.stopPropagation();
-      togglePaid(record.id);
-    });
+    const reveal = document.createElement('div');
+    reveal.className = 'pro-swipe-reveal';
+    reveal.innerHTML = `<button type="button" class="pro-swipe-delete" aria-label="${escapeHtml(record.account_name || 'Kaydı')} sil"><span class="pro-delete-symbol">−</span><strong>Sil</strong></button>`;
 
-    const deleteButton = document.createElement('button');
-    deleteButton.type = 'button';
-    deleteButton.className = 'pro-action pro-action-delete';
-    deleteButton.innerHTML = '<span>−</span><small>Sil</small>';
-    deleteButton.setAttribute('aria-label', 'Kaydı sil');
-    deleteButton.addEventListener('click', (event) => {
-      event.stopPropagation();
-      deleteRecord(record.id);
-    });
+    const shell = document.createElement('div');
+    shell.className = 'pro-swipe-shell';
+    shell.appendChild(row);
 
-    actions.append(paidButton, deleteButton);
-    wrapper.append(row, actions);
+    wrapper.append(reveal, shell);
+    enableSwipe(wrapper, record.id);
     return wrapper;
   }
 
@@ -233,6 +402,7 @@
   }
 
   function init() {
+    ensureDeleteConfirm();
     buildDashboard();
     applySettingsDesign();
     decorateRows();
@@ -245,6 +415,10 @@
       });
       observer.observe(list, { childList: true });
     }
+
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.pro-record')) closeOpenSwipes();
+    });
 
     window.addEventListener('focus', () => {
       syncDashboard();
