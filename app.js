@@ -286,6 +286,10 @@
 
   function pairTelegram() {
     try {
+      if (!backendReady) {
+        showResult('Sunucu v2.2 hazırlanıyor. Telegram bağlantısı sunucu hazır olunca açılacak.', false);
+        return;
+      }
       if (!validPairCode(data.pair_code)) data.pair_code = makePairCode();
       saveData();
       loadSettingsUi();
