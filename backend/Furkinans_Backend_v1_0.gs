@@ -1,10 +1,9 @@
-/** Furkinans Backend v1.0 — Google Apps Script */
-const FURKINANS_VERSION = '1.0';
+/** Furkinans Backend v1.1 — Google Apps Script */
+const FURKINANS_VERSION = '1.1';
 const TZ = 'Europe/Istanbul';
 const USERS_SHEET = 'Users';
 const RECORDS_SHEET = 'Records';
 const PAIR_TTL_MS = 30 * 60 * 1000;
-const WINDOW_MINUTES = 10;
 
 const USER_HEADERS = [
   'installation_id','device_secret_hash','telegram_chat_id','telegram_username','telegram_name',
@@ -22,19 +21,29 @@ function setupFurkinansV1() {
   ensureDatabase_();
   ensureMinuteTrigger_();
   initializeTelegramOffset_();
-  console.log('Furkinans v1.0 hazır: ' + getDatabase_().getUrl());
+  console.log('Furkinans v1.1 hazır: ' + getDatabase_().getUrl());
 }
 
 function doGet(e) {
   const p = e && e.parameter ? e.parameter : {};
-  const action = String(p.action || '');
-  if (action === 'config') return output_(p.prefix, {
-    ok: true, service: 'Furkinans', version: FURKINANS_VERSION, bot_username: getBotUsername_()
-  });
-  if (action === 'status') return output_(p.prefix, getPublicStatus_(p.installation_id));
-  return output_(p.prefix, {
-    ok: true, service: 'Furkinans', version: FURKINANS_VERSION, status: 'online', time: dateTime_(new Date())
-  });
+  try {
+    const action = String(p.action || '');
+    if (action === 'config') return output_(p.prefix, {
+      ok: true, service: 'Furkinans', version: FURKINANS_VERSION, bot_username: getBotUsername_()
+    });
+    if (action === 'status') return output_(p.prefix, getPublicStatus_(p.installation_id));
+    return output_(p.prefix, {
+      ok: true, service: 'Furkinans', version: FURKINANS_VERSION, status: 'online', time: dateTime_(new Date())
+    });
+  } catch (err) {
+    console.error(err && err.stack ? err.stack : err);
+    return output_(p.prefix, {
+      ok: false,
+      service: 'Furkinans',
+      version: FURKINANS_VERSION,
+      error: String(err && err.message ? err.message : err)
+    });
+  }
 }
 
 function doPost(e) {
@@ -51,8 +60,8 @@ function doPost(e) {
       const user = verifyUser_(body.installation_id, body.device_secret);
       const chatId = String(user.values[2] || '').trim();
       if (!chatId) return json_({ ok: false, error: 'telegram_not_linked' });
-      sendTelegram_(chatId, '✅ Furkinans test mesajı\n\nBu cihaz için Telegram bağlantısı çalışıyor.');
-      return json_({ ok: true, action: 'test' });
+      const sent = sendTelegram_(chatId, '✅ Furkinans test mesajı\n\nBu cihaz için Telegram bağlantısı çalışıyor.');
+      return json_({ ok: sent, action: 'test', error: sent ? '' : 'telegram_send_failed' });
     }
     return json_({ ok: false, error: 'unknown_action' });
   } catch (err) {
@@ -130,21 +139,30 @@ function getPublicStatus_(installationIdValue) {
   const row = findRow_(users, 0, installationId);
   let recordCount = 0;
   let unpaidCount = 0;
+  const recordById = {};
   for (let i = 1; i < records.length; i++) {
     if (String(records[i][0] || '') !== installationId) continue;
     recordCount++;
-    if (!truthy_(records[i][6])) unpaidCount++;
+    const recordId = String(records[i][1] || '').trim();
+    const paid = truthy_(records[i][6]);
+    if (!paid) unpaidCount++;
+    if (recordId) recordById[recordId] = { paid: paid };
   }
   if (row < 0) return {
     ok: true, version: FURKINANS_VERSION, found: false, telegram_linked: false, enabled: false,
-    record_count: recordCount, unpaid_count: unpaidCount, bot_username: getBotUsername_()
+    record_count: recordCount, unpaid_count: unpaidCount, followup_count: 0, bot_username: getBotUsername_()
   };
   const u = users[row];
+  const followState = parseWeeklyState_(u[16]);
+  const activeFollowupCount = followState.ids.filter(function(id) {
+    return recordById[id] && !recordById[id].paid;
+  }).length;
   return {
     ok: true, version: FURKINANS_VERSION, found: true, telegram_linked: Boolean(String(u[2] || '').trim()), enabled: truthy_(u[7]),
     weekday: int_(u[8],0,6,6), hour: int_(u[9],0,23,12), minute: int_(u[10],0,59,0),
     lookahead_days: int_(u[11],1,60,7), lookback_days: int_(u[12],0,60,2), daily_hour: int_(u[13],0,23,22), daily_minute: int_(u[14],0,59,0),
-    updated_at: String(u[15] || ''), record_count: recordCount, unpaid_count: unpaidCount, bot_username: getBotUsername_()
+    updated_at: String(u[15] || ''), record_count: recordCount, unpaid_count: unpaidCount,
+    last_general_notification: followState.date, followup_count: activeFollowupCount, bot_username: getBotUsername_()
   };
 }
 
@@ -166,13 +184,19 @@ function sendScheduledReminders_() {
   const users = usersSheet.getDataRange().getValues();
   const records = recordsSheet.getDataRange().getValues();
   const byUser = {};
+
   for (let i = 1; i < records.length; i++) {
-    const installationId = String(records[i][0] || '');
-    if (!installationId) continue;
+    const installationId = String(records[i][0] || '').trim();
+    const recordId = String(records[i][1] || '').trim();
+    if (!installationId || !recordId) continue;
     if (!byUser[installationId]) byUser[installationId] = [];
     byUser[installationId].push({
-      account_name: String(records[i][2] || ''), date_type: String(records[i][3] || 'due'), date: isoDate_(records[i][4]),
-      description: String(records[i][5] || ''), paid: truthy_(records[i][6])
+      record_id: recordId,
+      account_name: String(records[i][2] || ''),
+      date_type: String(records[i][3] || 'due'),
+      date: isoDate_(records[i][4]),
+      description: String(records[i][5] || ''),
+      paid: truthy_(records[i][6])
     });
   }
 
@@ -182,56 +206,111 @@ function sendScheduledReminders_() {
   const weekday = mondayIndex_(now);
 
   for (let i = 1; i < users.length; i++) {
-    const u = users[i];
-    const installationId = String(u[0] || '');
-    const chatId = String(u[2] || '').trim();
-    if (!installationId || !chatId || !truthy_(u[7])) continue;
+    try {
+      const u = users[i];
+      const installationId = String(u[0] || '').trim();
+      const chatId = String(u[2] || '').trim();
+      if (!installationId || !chatId || !truthy_(u[7])) continue;
 
-    const weeklyDay = int_(u[8],0,6,6);
-    const weeklyMinute = int_(u[9],0,23,12) * 60 + int_(u[10],0,59,0);
-    const lookahead = int_(u[11],1,60,7);
-    const lookback = int_(u[12],0,60,2);
-    const dailyMinute = int_(u[13],0,23,22) * 60 + int_(u[14],0,59,0);
-    const all = byUser[installationId] || [];
+      const weeklyDay = int_(u[8],0,6,6);
+      const weeklyMinute = int_(u[9],0,23,12) * 60 + int_(u[10],0,59,0);
+      const lookahead = int_(u[11],1,60,7);
+      const lookback = int_(u[12],0,60,2);
+      const dailyMinute = int_(u[13],0,23,22) * 60 + int_(u[14],0,59,0);
+      const all = byUser[installationId] || [];
+      const recordById = {};
+      all.forEach(function(r) { recordById[r.record_id] = r; });
 
-    if (weekday === weeklyDay && near_(currentMinute, weeklyMinute) && String(u[16] || '') !== today) {
-      const windowRecords = all.filter(function(r) {
-        if (r.paid || !r.date) return false;
-        const d = diffDays_(today, r.date);
-        return d >= -lookback && d <= lookahead;
-      });
-      sendTelegram_(chatId, weeklyMessage_(windowRecords, lookahead, lookback, today));
-      usersSheet.getRange(i + 1, 17).setValue(today);
-    }
+      let followState = parseWeeklyState_(u[16]);
 
-    if (weekday !== weeklyDay && near_(currentMinute, dailyMinute) && String(u[17] || '') !== today) {
-      const dailyRecords = all.filter(function(r) {
-        if (r.paid || !r.date) return false;
-        return diffDays_(today, r.date) <= lookahead;
-      });
-      if (dailyRecords.length) sendTelegram_(chatId, dailyMessage_(dailyRecords, today));
-      usersSheet.getRange(i + 1, 18).setValue(today);
+      // GENEL BİLDİRİM: sadece seçilen gün ve tam seçilen dakika.
+      if (weekday === weeklyDay && currentMinute === weeklyMinute && followState.date !== today) {
+        const windowRecords = all.filter(function(r) {
+          if (r.paid || !r.date) return false;
+          const d = diffDays_(today, r.date);
+          return isFinite(d) && d >= -lookback && d <= lookahead;
+        });
+
+        const previousActiveIds = followState.ids.filter(function(id) {
+          const r = recordById[id];
+          return r && !r.paid;
+        });
+        const currentWindowIds = windowRecords.map(function(r) { return r.record_id; });
+        const followupIds = uniqueIds_(previousActiveIds.concat(currentWindowIds));
+        const currentWindowMap = {};
+        currentWindowIds.forEach(function(id) { currentWindowMap[id] = true; });
+        const carriedCount = previousActiveIds.filter(function(id) { return !currentWindowMap[id]; }).length;
+
+        if (sendTelegram_(chatId, weeklyMessage_(windowRecords, lookahead, lookback, today, carriedCount))) {
+          followState = { date: today, ids: followupIds };
+          usersSheet.getRange(i + 1, 17).setValue(encodeWeeklyState_(today, followupIds));
+        }
+      }
+
+      // GÜNLÜK TAKİP: yalnızca son genel bildirim(ler)de takibe alınmış ve hâlâ ödenmemiş kayıtlar.
+      // Genel bildirimin geldiği gün günlük tekrar yok; takip ertesi günden başlar ve ödeme yapılana kadar sürer.
+      const daysAfterGeneral = followState.date ? diffDays_(followState.date, today) : 0;
+      if (daysAfterGeneral > 0 && currentMinute === dailyMinute && String(u[17] || '') !== today) {
+        const activeIds = followState.ids.filter(function(id) {
+          const r = recordById[id];
+          return r && !r.paid;
+        });
+        const dailyRecords = activeIds.map(function(id) { return recordById[id]; }).filter(Boolean);
+
+        // Ödenmiş veya silinmiş kayıtları takip havuzundan temizle.
+        if (activeIds.length !== followState.ids.length) {
+          followState = { date: followState.date, ids: activeIds };
+          usersSheet.getRange(i + 1, 17).setValue(encodeWeeklyState_(followState.date, activeIds));
+        }
+
+        if (!dailyRecords.length || sendTelegram_(chatId, dailyMessage_(dailyRecords, today))) {
+          usersSheet.getRange(i + 1, 18).setValue(today);
+        }
+      }
+    } catch (err) {
+      console.error('Reminder error row ' + (i + 1) + ': ' + String(err && err.stack ? err.stack : err));
     }
   }
 }
 
-function weeklyMessage_(records, lookahead, lookback, today) {
-  const lines = ['📌 Furkinans haftalık özet', '', 'İleri ' + lookahead + ' gün ve geçmiş ' + lookback + ' gün:', ''];
-  if (!records.length) return lines.concat(['Bu aralıkta bekleyen ödeme görünmüyor.']).join('\n');
-  records.sort(function(a,b){ return a.date.localeCompare(b.date); });
-  records.forEach(function(r) {
-    const d = diffDays_(today, r.date);
-    lines.push('• ' + r.account_name + ' — ' + prettyType_(r.date_type) + ': ' + prettyDate_(r.date) + ' (' + relativeLabel_(d) + ')');
-    if (r.description) lines.push('  ' + r.description);
-  });
+function weeklyMessage_(records, lookahead, lookback, today, carriedCount) {
+  const lines = [
+    '📌 Furkinans genel ödeme bildirimi',
+    '',
+    'Geçmiş ' + lookback + ' gün / gelecek ' + lookahead + ' gün:',
+    ''
+  ];
+  if (!records.length) {
+    lines.push('Bu aralıkta bekleyen ödeme görünmüyor.');
+  } else {
+    records.sort(function(a,b){ return a.date.localeCompare(b.date); });
+    lines.push('Bekleyen ödeme: ' + records.length);
+    lines.push('');
+    records.forEach(function(r) {
+      const d = diffDays_(today, r.date);
+      lines.push('• ' + r.account_name + ' — ' + prettyType_(r.date_type) + ': ' + prettyDate_(r.date) + ' (' + relativeLabel_(d) + ')');
+      if (r.description) lines.push('  ' + r.description);
+    });
+  }
+  if (carriedCount > 0) {
+    lines.push('');
+    lines.push('↻ Önceki genel bildirimlerden ödenmemiş ' + carriedCount + ' kayıt günlük takipte kalıyor.');
+  }
+  lines.push('');
+  lines.push('Bu bildirimdeki ödenmemiş kayıtlar, yarından itibaren günlük bildirim saatinde ödeme yapılana kadar hatırlatılır.');
   return lines.join('\n');
 }
 
 function dailyMessage_(records, today) {
-  const lines = ['🔔 Furkinans günlük hatırlatma', '', 'Ödendi olarak işaretlenmeyen kayıtlar:', ''];
+  const lines = [
+    '🔔 Furkinans günlük ödeme hatırlatması',
+    '',
+    'Genel bildirimden kalan ödenmemiş ödeme: ' + records.length,
+    ''
+  ];
   records.sort(function(a,b){ return a.date.localeCompare(b.date); });
   records.forEach(function(r) {
-    lines.push('• ' + r.account_name + ' — ' + prettyDate_(r.date) + ' (' + relativeLabel_(diffDays_(today, r.date)) + ')');
+    lines.push('• ' + r.account_name + ' — ' + prettyType_(r.date_type) + ': ' + prettyDate_(r.date) + ' (' + relativeLabel_(diffDays_(today, r.date)) + ')');
   });
   lines.push('', 'Ödeme yapınca uygulamada durumu Ödendi olarak değiştir.');
   return lines.join('\n');
@@ -334,7 +413,11 @@ function sendTelegram_(chatId, text) {
     payload: JSON.stringify({ chat_id: chatId, text: text })
   });
   const data = JSON.parse(response.getContentText() || '{}');
-  if (!data.ok) console.error('Telegram send failed: ' + response.getContentText());
+  if (!data.ok) {
+    console.error('Telegram send failed: ' + response.getContentText());
+    return false;
+  }
+  return true;
 }
 
 function telegramApi_(path) {
@@ -366,13 +449,30 @@ function json_(obj) { return ContentService.createTextOutput(JSON.stringify(obj)
 function installationId_(v) { const s = String(v || '').trim(); return /^[A-Za-z0-9_-]{8,120}$/.test(s) ? s : ''; }
 function pairCode_(v) { return String(v || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0,20); }
 function randomPairCode_() { return Utilities.getUuid().replace(/-/g,'').slice(0,8).toUpperCase(); }
-function isoDate_(v) { const s = String(v || '').slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : ''; }
+
+function isoDate_(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v.getTime())) {
+    return Utilities.formatDate(v, TZ, 'yyyy-MM-dd');
+  }
+  const s = String(v).trim();
+  const match = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+  const parsed = new Date(s);
+  if (!isNaN(parsed.getTime())) return Utilities.formatDate(parsed, TZ, 'yyyy-MM-dd');
+  return '';
+}
+
 function dateOnly_(d) { return Utilities.formatDate(d, TZ, 'yyyy-MM-dd'); }
 function dateTime_(d) { return Utilities.formatDate(d, TZ, "yyyy-MM-dd'T'HH:mm:ss"); }
 function prettyDate_(v) { const s = isoDate_(v); return s ? s.slice(8,10)+'.'+s.slice(5,7)+'.'+s.slice(0,4) : String(v || ''); }
 function prettyType_(v) { return String(v || '') === 'statement' ? 'Hesap Kesim' : 'Son Ödeme'; }
-function diffDays_(fromIso, toIso) { return Math.round((new Date(toIso+'T00:00:00Z') - new Date(fromIso+'T00:00:00Z')) / 86400000); }
-function near_(a,b) { return Math.abs(a-b) <= WINDOW_MINUTES; }
+function diffDays_(fromIso, toIso) {
+  const from = isoDate_(fromIso);
+  const to = isoDate_(toIso);
+  if (!from || !to) return NaN;
+  return Math.round((new Date(to+'T00:00:00Z') - new Date(from+'T00:00:00Z')) / 86400000);
+}
 function mondayIndex_(d) { return Number(Utilities.formatDate(d, TZ, 'u')) - 1; }
 function relativeLabel_(d) { return d < 0 ? Math.abs(d)+' gün geçti' : d === 0 ? 'bugün' : d+' gün kaldı'; }
 function findRow_(rows, col, value) { for (let i=1;i<rows.length;i++) if (String(rows[i][col] || '') === value) return i; return -1; }
@@ -380,6 +480,38 @@ function int_(v,min,max,fallback) { const n=Number(v); return isFinite(n) ? Math
 function truthy_(v) { return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true'; }
 function boolInt_(v,fallback) { return truthy_(v === undefined || v === null || v === '' ? fallback : v) ? 1 : 0; }
 function expired_(v) { const n=Number(v); if (isFinite(n) && n>0) return n < Date.now(); const d=new Date(String(v || '')); return isNaN(d.getTime()) || d.getTime() < Date.now(); }
+
+function uniqueIds_(ids) {
+  const seen = {};
+  const out = [];
+  (ids || []).forEach(function(id) {
+    const value = String(id || '').trim();
+    if (!value || seen[value]) return;
+    seen[value] = true;
+    out.push(value);
+  });
+  return out;
+}
+
+function parseWeeklyState_(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return { date: '', ids: [] };
+  const splitAt = raw.indexOf('|');
+  if (splitAt < 0) return { date: isoDate_(raw), ids: [] };
+  const date = isoDate_(raw.slice(0, splitAt));
+  const idsPart = raw.slice(splitAt + 1);
+  const ids = idsPart ? idsPart.split(',').map(function(part) {
+    try { return decodeURIComponent(part); } catch (_) { return part; }
+  }) : [];
+  return { date: date, ids: uniqueIds_(ids) };
+}
+
+function encodeWeeklyState_(date, ids) {
+  const cleanDate = isoDate_(date);
+  const cleanIds = uniqueIds_(ids);
+  return cleanDate + '|' + cleanIds.map(function(id) { return encodeURIComponent(id); }).join(',');
+}
+
 function hash_(text) {
   const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8);
   return bytes.map(function(b){ const n=(b+256)%256; return ('0'+n.toString(16)).slice(-2); }).join('');
