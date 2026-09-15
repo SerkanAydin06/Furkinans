@@ -30,13 +30,19 @@
   }
 
   function recordState(record) {
-    if (record.paid) return { label: 'Ödendi', tone: 'paid' };
-    if (isOverdue(record)) return { label: 'Gecikti', tone: 'overdue' };
-    return { label: 'Bekliyor', tone: 'pending' };
+    if (record.paid) return { label: 'Ödendi', tone: 'paid', rank: 2 };
+    if (isOverdue(record)) return { label: 'Gecikti', tone: 'overdue', rank: 0 };
+    return { label: 'Bekliyor', tone: 'pending', rank: 1 };
   }
 
-  function sortRecords(records) {
+  function sourceSort(records) {
     return [...records].sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.account_name || '').localeCompare(String(b.account_name || ''), 'tr'));
+  }
+
+  function displaySort(a, b) {
+    const sa = recordState(a);
+    const sb = recordState(b);
+    return sa.rank - sb.rank || String(a.date).localeCompare(String(b.date)) || String(a.account_name || '').localeCompare(String(b.account_name || ''), 'tr');
   }
 
   function formatDate(iso) {
@@ -44,12 +50,15 @@
     return y && m && d ? `${d}.${m}.${y}` : (iso || '—');
   }
 
+  function dateTypeLabel(record) {
+    return record.date_type === 'statement' ? 'Hesap Kesim' : 'Son Ödeme';
+  }
+
   function buildDashboard() {
     const view = $('recordsView');
     const old = view && view.querySelector('.summary-card');
-    if (!view || !old || view.querySelector('.pro-dashboard')) return;
+    if (!view || view.querySelector('.pro-dashboard')) return;
 
-    const syncBadge = old.querySelector('#syncBadge');
     const dashboard = document.createElement('section');
     dashboard.className = 'pro-dashboard';
     dashboard.innerHTML = `
@@ -63,7 +72,10 @@
         <div class="pro-stat success"><span>Ödendi</span><strong id="proPaid">0</strong></div>
         <div class="pro-stat danger"><span>Geciken</span><strong id="proOverdue">0</strong></div>
       </div>`;
-    old.replaceWith(dashboard);
+
+    const syncBadge = $('syncBadge');
+    if (old) old.replaceWith(dashboard);
+    else view.insertBefore(dashboard, view.firstChild);
     const slot = dashboard.querySelector('.pro-badge-slot');
     if (syncBadge && slot) slot.replaceWith(syncBadge);
   }
@@ -121,64 +133,95 @@
     location.reload();
   }
 
+  function buildCard(record, row) {
+    const state = recordState(record);
+    const wrapper = document.createElement('article');
+    wrapper.className = `pro-record tone-${state.tone}`;
+    wrapper.dataset.recordId = record.id;
+    wrapper.dataset.sortRank = String(state.rank);
+    wrapper.dataset.sortDate = String(record.date || '');
+
+    row.dataset.proReady = '1';
+    row.classList.add('pro-record-main');
+    row.classList.remove('table-grid');
+    row.innerHTML = `
+      <div class="pro-record-head">
+        <div class="pro-title-stack">
+          <span class="pro-kicker">HESAP</span>
+          <strong class="pro-account-title">${escapeHtml(record.account_name || '—')}</strong>
+        </div>
+        <span class="pro-state-chip ${state.tone}">${state.label}</span>
+      </div>
+      <div class="pro-info-grid">
+        <div class="pro-info-block type-${record.date_type === 'statement' ? 'statement' : 'due'}">
+          <span class="pro-info-label">Tarih Türü</span>
+          <strong>${dateTypeLabel(record)}</strong>
+        </div>
+        <div class="pro-info-block">
+          <span class="pro-info-label">Tarih</span>
+          <strong class="pro-date-value">${formatDate(record.date)}</strong>
+        </div>
+        <div class="pro-info-block pro-info-wide">
+          <span class="pro-info-label">Açıklama</span>
+          <strong>${escapeHtml(record.description || 'Açıklama girilmedi')}</strong>
+        </div>
+        ${record.paid && record.paid_at ? `<div class="pro-paid-note">✓ Ödeme tarihi: ${formatDate(String(record.paid_at).slice(0, 10))}</div>` : ''}
+      </div>`;
+
+    const actions = document.createElement('div');
+    actions.className = 'pro-record-actions';
+
+    const paidButton = document.createElement('button');
+    paidButton.type = 'button';
+    paidButton.className = `pro-action pro-action-paid ${record.paid ? 'active' : ''}`;
+    paidButton.innerHTML = `<span>${record.paid ? '✓' : '+'}</span><small>${record.paid ? 'Ödendi' : 'Öde'}</small>`;
+    paidButton.setAttribute('aria-label', record.paid ? 'Bekliyor yap' : 'Ödendi yap');
+    paidButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      togglePaid(record.id);
+    });
+
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'pro-action pro-action-delete';
+    deleteButton.innerHTML = '<span>−</span><small>Sil</small>';
+    deleteButton.setAttribute('aria-label', 'Kaydı sil');
+    deleteButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      deleteRecord(record.id);
+    });
+
+    actions.append(paidButton, deleteButton);
+    wrapper.append(row, actions);
+    return wrapper;
+  }
+
   function decorateRows() {
     if (decorating) return;
     decorating = true;
     try {
       const list = $('recordsList');
       if (!list) return;
-      const rows = Array.from(list.children).filter((el) => el.classList && el.classList.contains('record-row'));
-      if (!rows.length) {
-        syncDashboard();
-        return;
-      }
 
-      const records = sortRecords(readData().records);
-      rows.forEach((row, index) => {
+      const rawRows = Array.from(list.children).filter((el) => el.classList && el.classList.contains('record-row'));
+      const records = sourceSort(readData().records);
+
+      rawRows.forEach((row, index) => {
         if (row.dataset.proReady === '1') return;
         const record = records[index];
         if (!record) return;
-        const state = recordState(record);
-
-        const wrapper = document.createElement('article');
-        wrapper.className = `pro-record tone-${state.tone}`;
-        wrapper.dataset.recordId = record.id;
-
-        row.dataset.proReady = '1';
-        row.classList.add('pro-record-main');
-        row.classList.remove('table-grid');
-        row.innerHTML = `
-          <div class="pro-record-head">
-            <div class="pro-title-wrap">
-              <strong>${escapeHtml(record.account_name || '—')}</strong>
-              <span class="pro-type-chip">${record.date_type === 'statement' ? 'Hesap kesim' : 'Son ödeme'}</span>
-            </div>
-            <span class="pro-state-chip ${state.tone}">${state.label}</span>
-          </div>
-          <div class="pro-record-meta"><span>${formatDate(record.date)}</span>${record.paid && record.paid_at ? `<span class="paid-meta">Ödendi • ${formatDate(String(record.paid_at).slice(0,10))}</span>` : ''}</div>
-          <p>${escapeHtml(record.description || 'Açıklama girilmedi')}</p>`;
-
-        const actions = document.createElement('div');
-        actions.className = 'pro-record-actions';
-
-        const paidButton = document.createElement('button');
-        paidButton.type = 'button';
-        paidButton.className = `pro-action pro-action-paid ${record.paid ? 'active' : ''}`;
-        paidButton.innerHTML = `<span>${record.paid ? '✓' : '+'}</span><small>${record.paid ? 'Ödendi' : 'Öde'}</small>`;
-        paidButton.setAttribute('aria-label', record.paid ? 'Bekliyor yap' : 'Ödendi yap');
-        paidButton.addEventListener('click', () => togglePaid(record.id));
-
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'pro-action pro-action-delete';
-        deleteButton.innerHTML = '<span>−</span><small>Sil</small>';
-        deleteButton.setAttribute('aria-label', 'Kaydı sil');
-        deleteButton.addEventListener('click', () => deleteRecord(record.id));
-
-        actions.append(paidButton, deleteButton);
-        row.replaceWith(wrapper);
-        wrapper.append(row, actions);
+        row.replaceWith(buildCard(record, row));
       });
+
+      const wrappers = Array.from(list.children).filter((el) => el.classList && el.classList.contains('pro-record'));
+      const byId = new Map(readData().records.map((record) => [String(record.id), record]));
+      wrappers.sort((a, b) => {
+        const ra = byId.get(String(a.dataset.recordId));
+        const rb = byId.get(String(b.dataset.recordId));
+        if (!ra || !rb) return 0;
+        return displaySort(ra, rb);
+      }).forEach((wrapper) => list.appendChild(wrapper));
+
       syncDashboard();
     } finally {
       decorating = false;
@@ -203,9 +246,10 @@
       observer.observe(list, { childList: true });
     }
 
-    const sync = $('syncBadge');
-    if (sync) new MutationObserver(syncDashboard).observe(sync, { childList: true, characterData: true, subtree: true });
-    window.addEventListener('focus', syncDashboard);
+    window.addEventListener('focus', () => {
+      syncDashboard();
+      decorateRows();
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
