@@ -1,5 +1,5 @@
 #view-records {
-  padding-bottom: 108px;
+  padding-bottom: 96px;
 }
 
 .record-card {
@@ -16,10 +16,9 @@
 
 .record-shell {
   position: relative;
-  padding: 18px;
-  min-height: 286px;
-  display: flex;
-  flex-direction: column;
+  padding: 14px 16px 12px;
+  min-height: 0 !important;
+  display: block;
   transform: none !important;
   transition: none !important;
 }
@@ -28,17 +27,65 @@
   transform: none !important;
 }
 
+.record-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.record-head > div:first-child {
+  min-width: 0;
+}
+
+.record-label {
+  margin-bottom: 4px;
+}
+
+.record-title {
+  min-width: 0;
+  margin: 0;
+  line-height: 1.08;
+}
+
 .status-chip {
-  min-width: 132px;
-  min-height: 54px;
+  flex: 0 0 auto;
+  min-width: 108px;
+  width: 108px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 10px;
   justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+
+.status-chip .arrow {
+  font-size: 15px;
 }
 
 .record-grid {
-  flex: 1 1 auto;
+  margin-top: 10px;
+  gap: 7px;
+}
+
+.record-info {
+  padding: 9px 10px;
+  border-radius: 14px;
+}
+
+.record-info span {
+  margin-bottom: 3px;
+  font-size: 10.5px;
 }
 
 .record-info strong {
+  font-size: 12.5px;
+  line-height: 1.25;
+  min-height: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -46,47 +93,39 @@
 }
 
 .record-footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  display: flex;
+  justify-content: flex-end;
   align-items: center;
-  min-height: 52px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(126,153,201,.12);
+  margin-top: 7px;
+  padding-top: 7px;
+  min-height: 0;
+  border-top: 1px solid rgba(126,153,201,.10);
 }
 
-.record-state-note {
-  min-width: 0;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.record-state-note,
+.record-hint,
+.record-paid-note {
+  display: none !important;
 }
-
-.record-state-note.pending { color: #ffd78f; }
-.record-state-note.overdue { color: #ffacb1; }
-.record-state-note.paid { color: #86ffc0; }
 
 .record-delete-inline {
-  min-width: 92px;
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 14px;
+  min-width: 72px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 11px;
   border: 1px solid rgba(255,91,98,.30);
   background: rgba(255,91,98,.10);
   color: #ffb6ba;
+  font-size: 12px;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 5px;
 }
 
 .record-delete-inline span {
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1;
 }
 
@@ -100,27 +139,71 @@
 }
 
 @media (max-width: 760px) {
+  .record-head {
+    flex-direction: row !important;
+    align-items: flex-end !important;
+    justify-content: flex-start;
+  }
+
   .status-chip {
-    min-width: 132px;
+    align-self: flex-end !important;
+    min-width: 104px;
+    width: 104px;
   }
 }
 
 @media (max-width: 560px) {
   #view-records {
-    padding-bottom: 96px;
+    padding-bottom: 90px;
   }
 
   .record-shell {
-    min-height: 330px;
+    min-height: 0 !important;
+    padding: 12px 13px 10px;
+  }
+
+  .record-head {
+    gap: 8px;
+  }
+
+  .record-title {
+    font-size: 21px;
+  }
+
+  .status-chip {
+    min-width: 100px;
+    width: 100px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 9px;
+    font-size: 11.5px;
+  }
+
+  .record-grid {
+    margin-top: 8px;
+    gap: 6px;
+  }
+
+  .record-info {
+    padding: 8px 7px;
+  }
+
+  .record-info span {
+    font-size: 9.5px;
+  }
+
+  .record-info strong {
+    font-size: 11.5px;
   }
 
   .record-footer {
-    grid-template-columns: minmax(0,1fr) auto;
+    margin-top: 6px;
+    padding-top: 6px;
   }
 
   .record-delete-inline {
-    min-width: 82px;
-    height: 42px;
-    padding: 0 13px;
+    min-width: 68px;
+    height: 32px;
+    padding: 0 10px;
   }
 }
