@@ -1,4 +1,4 @@
-const CACHE = 'furkinans-pwa-v14';
+const CACHE = 'furkinans-pwa-v15';
 const APP_SHELL = [
   './',
   './index.html',
@@ -7,11 +7,13 @@ const APP_SHELL = [
   './pro-ui.css',
   './tabs-v2.css',
   './match-ui.css',
+  './records-v3.css',
   './app.js',
   './status.js',
   './pro-ui.js',
   './tabs-v2.js',
   './match-ui.js',
+  './records-v3.js',
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',
@@ -30,6 +32,9 @@ function enhanceHtml(html) {
   if (!out.includes('match-ui.css')) {
     out = out.replace('</head>', '  <link rel="stylesheet" href="match-ui.css" />\n</head>');
   }
+  if (!out.includes('records-v3.css')) {
+    out = out.replace('</head>', '  <link rel="stylesheet" href="records-v3.css?v=28" />\n</head>');
+  }
   if (!out.includes('pro-ui.js')) {
     out = out.replace('</body>', '  <script src="pro-ui.js"></script>\n</body>');
   }
@@ -38,6 +43,9 @@ function enhanceHtml(html) {
   }
   if (!out.includes('match-ui.js')) {
     out = out.replace('</body>', '  <script src="match-ui.js"></script>\n</body>');
+  }
+  if (!out.includes('records-v3.js')) {
+    out = out.replace('</body>', '  <script src="records-v3.js?v=28"></script>\n</body>');
   }
   return out;
 }
@@ -84,7 +92,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-store' })
       .then((response) => {
         const copy = response.clone();
         caches.open(CACHE).then((cache) => cache.put(event.request, copy));
