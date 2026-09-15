@@ -15,9 +15,10 @@
     tabRecords: $('tabRecords'), tabSettings: $('tabSettings'), recordsView: $('recordsView'), settingsView: $('settingsView'),
     recordCount: $('recordCount'), recordsList: $('recordsList'), emptyState: $('emptyState'), syncBadge: $('syncBadge'),
     addRecordButton: $('addRecordButton'), editorOverlay: $('editorOverlay'), editorTitle: $('editorTitle'), closeEditorButton: $('closeEditorButton'),
-    accountInput: $('accountInput'), dateTypeInput: $('dateTypeInput'), dateInput: $('dateInput'), descriptionInput: $('descriptionInput'),
+    accountInput: $('accountInput'), dateTypeInput: $('dateTypeInput'), dateInput: $('dateInput'), descriptionInput: $('descriptionInput'), paidInput: $('paidInput'),
     editorError: $('editorError'), deleteRecordButton: $('deleteRecordButton'), saveRecordButton: $('saveRecordButton'),
-    weekdayInput: $('weekdayInput'), hourInput: $('hourInput'), minuteInput: $('minuteInput'), lookaheadInput: $('lookaheadInput'),
+    weekdayInput: $('weekdayInput'), hourInput: $('hourInput'), minuteInput: $('minuteInput'), lookaheadInput: $('lookaheadInput'), lookbackInput: $('lookbackInput'),
+    dailyHourInput: $('dailyHourInput'), dailyMinuteInput: $('dailyMinuteInput'),
     saveSettingsButton: $('saveSettingsButton'), testTelegramButton: $('testTelegramButton'),
     installationIdLabel: $('installationIdLabel'), pairCodeLabel: $('pairCodeLabel'), pairTelegramButton: $('pairTelegramButton'),
     refreshPairCodeButton: $('refreshPairCodeButton'), telegramResult: $('telegramResult')
@@ -30,7 +31,7 @@
       device_secret: makeDeviceSecret(),
       pair_code: makePairCode(),
       records: [],
-      settings: { weekday: 6, hour: 12, minute: 0, lookahead_days: 7 }
+      settings: { weekday: 6, hour: 12, minute: 0, lookahead_days: 7, lookback_days: 2, daily_hour: 22, daily_minute: 0 }
     };
   }
 
@@ -50,8 +51,8 @@
       parsed.installation_id ||= makeInstallationId();
       parsed.device_secret ||= makeDeviceSecret();
       parsed.pair_code = validPairCode(parsed.pair_code) ? String(parsed.pair_code).toUpperCase() : makePairCode();
-      parsed.records = Array.isArray(parsed.records) ? parsed.records : [];
-      parsed.settings = Object.assign({ weekday: 6, hour: 12, minute: 0, lookahead_days: 7 }, parsed.settings || {});
+      parsed.records = Array.isArray(parsed.records) ? parsed.records.map((record) => Object.assign({}, record, { paid: record && (record.paid === true || String(record.paid).toLowerCase() === 'true'), paid_at: record && record.paid_at ? String(record.paid_at) : '' })) : [];
+      parsed.settings = Object.assign({ weekday: 6, hour: 12, minute: 0, lookahead_days: 7, lookback_days: 2, daily_hour: 22, daily_minute: 0 }, parsed.settings || {});
       delete parsed.settings.api_key;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
       return parsed;
@@ -132,7 +133,15 @@
       description.className = 'record-cell record-description';
       description.textContent = record.description || '—';
 
-      row.append(account, date, description);
+      const status = document.createElement('div');
+      status.className = 'record-cell record-payment';
+      const pill = document.createElement('span');
+      pill.className = `payment-pill ${record.paid ? 'paid' : 'pending'}`;
+      pill.textContent = record.paid ? 'Ödendi' : 'Bekliyor';
+      status.appendChild(pill);
+
+      row.classList.toggle('is-paid', Boolean(record.paid));
+      row.append(account, date, description, status);
       els.recordsList.appendChild(row);
     });
   }
@@ -143,6 +152,9 @@
     els.hourInput.value = String(clampInt(s.hour, 0, 23, 12));
     els.minuteInput.value = String(clampInt(s.minute, 0, 59, 0));
     els.lookaheadInput.value = String(clampInt(s.lookahead_days, 1, 60, 7));
+    els.lookbackInput.value = String(clampInt(s.lookback_days, 0, 60, 2));
+    els.dailyHourInput.value = String(clampInt(s.daily_hour, 0, 23, 22));
+    els.dailyMinuteInput.value = String(clampInt(s.daily_minute, 0, 59, 0));
     els.installationIdLabel.textContent = data.installation_id;
     els.pairCodeLabel.textContent = data.pair_code;
     updateSyncBadge();
@@ -174,6 +186,7 @@
       els.dateTypeInput.value = record.date_type || 'due';
       els.dateInput.value = record.date || '';
       els.descriptionInput.value = record.description || '';
+      els.paidInput.checked = Boolean(record.paid);
       els.deleteRecordButton.classList.remove('hidden');
     } else {
       els.editorTitle.textContent = 'Yeni Kayıt';
@@ -181,6 +194,7 @@
       els.dateTypeInput.value = 'due';
       els.dateInput.value = todayIso();
       els.descriptionInput.value = '';
+      els.paidInput.checked = false;
       els.deleteRecordButton.classList.add('hidden');
     }
     els.editorOverlay.classList.remove('hidden');
@@ -210,12 +224,16 @@
       return;
     }
 
+    const previous = editingId ? data.records.find((x) => x.id === editingId) : null;
+    const paid = Boolean(els.paidInput.checked);
     const record = {
       id: editingId || makeRecordId(),
       account_name: account,
       date_type: els.dateTypeInput.value === 'statement' ? 'statement' : 'due',
       date,
-      description: els.descriptionInput.value.trim()
+      description: els.descriptionInput.value.trim(),
+      paid,
+      paid_at: paid ? (previous && previous.paid && previous.paid_at ? previous.paid_at : new Date().toISOString()) : ''
     };
 
     if (editingId) {
@@ -246,6 +264,9 @@
     data.settings.hour = clampInt(els.hourInput.value, 0, 23, 12);
     data.settings.minute = clampInt(els.minuteInput.value, 0, 59, 0);
     data.settings.lookahead_days = clampInt(els.lookaheadInput.value, 1, 60, 7);
+    data.settings.lookback_days = clampInt(els.lookbackInput.value, 0, 60, 2);
+    data.settings.daily_hour = clampInt(els.dailyHourInput.value, 0, 23, 22);
+    data.settings.daily_minute = clampInt(els.dailyMinuteInput.value, 0, 59, 0);
     saveData();
     loadSettingsUi();
     showResult('Bildirim ayarları kaydediliyor ve etkinleştiriliyor…', true);
@@ -265,7 +286,10 @@
         weekday: clampInt(data.settings.weekday, 0, 6, 6),
         hour: clampInt(data.settings.hour, 0, 23, 12),
         minute: clampInt(data.settings.minute, 0, 59, 0),
-        lookahead_days: clampInt(data.settings.lookahead_days, 1, 60, 7)
+        lookahead_days: clampInt(data.settings.lookahead_days, 1, 60, 7),
+        lookback_days: clampInt(data.settings.lookback_days, 0, 60, 2),
+        daily_hour: clampInt(data.settings.daily_hour, 0, 23, 22),
+        daily_minute: clampInt(data.settings.daily_minute, 0, 59, 0)
       };
       base.records = data.records;
     }
@@ -273,7 +297,7 @@
   }
 
   async function postOpaque(action, { keepalive = false, activatePlan = false } = {}) {
-    if (!backendReady) throw new Error('Furkinans sunucusu v2.2 henüz hazır değil.');
+    if (!backendReady) throw new Error('Furkinans sunucusu v2.3 henüz hazır değil.');
     await fetch(SERVER_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -287,7 +311,7 @@
   function pairTelegram() {
     try {
       if (!backendReady) {
-        showResult('Sunucu v2.2 hazırlanıyor. Telegram bağlantısı sunucu hazır olunca açılacak.', false);
+        showResult('Sunucu v2.3 hazırlanıyor. Telegram bağlantısı sunucu hazır olunca açılacak.', false);
         return;
       }
       if (!validPairCode(data.pair_code)) data.pair_code = makePairCode();
@@ -414,7 +438,7 @@
   loadSettingsUi();
   saveData();
 
-  // status.js verifies backend v2.2 first, then emits furkinans:backend-ready.
+  // status.js verifies backend v2.3 first, then emits furkinans:backend-ready.
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
