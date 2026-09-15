@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const SERVER_URL = 'https://script.google.com/macros/s/AKfycbxFU_W3cG09demXHXANalKYOyxp7Xte_0XONRyhJZ-30QB26LCvqXw6ygYWnCBEuxiK/exec';
+  const SERVER_URL = 'https://script.google.com/macros/s/AKfycbx2mm0fCPOjyUz3zGad2ltU3sQSe_6-hLWr7vJPT6OIJQu1vGZydgYadawNpen9_2vY/exec';
   const STORAGE_KEY = 'furkinans_pwa_v1';
   const UI_KEY = 'furkinans_status_ui_v1';
   const WEEKDAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
