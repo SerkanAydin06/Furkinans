@@ -169,7 +169,8 @@ function sendScheduledReminders_() {
   for (let i = 1; i < records.length; i++) {
     const installationId = String(records[i][0] || '');
     if (!installationId) continue;
-    (byUser[installationId] ||= []).push({
+    if (!byUser[installationId]) byUser[installationId] = [];
+    byUser[installationId].push({
       account_name: String(records[i][2] || ''), date_type: String(records[i][3] || 'due'), date: isoDate_(records[i][4]),
       description: String(records[i][5] || ''), paid: truthy_(records[i][6])
     });
