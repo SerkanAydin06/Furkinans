@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const SERVER_URL = 'https://script.google.com/macros/s/AKfycbxFU_W3cG09demXHXANalKYOyxp7Xte_0XONRyhJZ-30QB26LCvqXw6ygYWnCBEuxiK/exec';
+  const SERVER_URL = 'https://script.google.com/macros/s/AKfycbx2mm0fCPOjyUz3zGad2ltU3sQSe_6-hLWr7vJPT6OIJQu1vGZydgYadawNpen9_2vY/exec';
   const TELEGRAM_BOT_USERNAME = 'Furkinans_bot';
   const STORAGE_KEY = 'furkinans_pwa_v1'; // Keep v1 key so existing phone data survives the upgrade.
   const PAIR_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -287,6 +287,8 @@
       saveData();
       loadSettingsUi();
 
+      // Start the request while we still have the user gesture. keepalive helps
+      // it finish after iOS switches into Telegram.
       postOpaque('sync', { keepalive: true }).catch(() => {});
       showResult('Telegram açılıyor. Açılan sohbette Başlat / Start düğmesine bas.', true);
 
@@ -365,6 +367,7 @@
   loadSettingsUi();
   saveData();
 
+  // Register/refresh this device and its current pairing code whenever the app opens.
   if (navigator.onLine) syncAll({ quiet: true });
 
   if ('serviceWorker' in navigator) {
