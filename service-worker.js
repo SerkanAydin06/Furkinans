@@ -1,4 +1,4 @@
-const CACHE = 'furkinans-pwa-v12';
+const CACHE = 'furkinans-pwa-v13';
 const APP_SHELL = [
   './',
   './index.html',
