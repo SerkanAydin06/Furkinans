@@ -1,4 +1,4 @@
-const CACHE_NAME = 'furkinans-v1-0-cache-r2';
+const CACHE_NAME = 'furkinans-v1-0-cache-r3';
 const ASSETS = [
   './',
   './index.html',
