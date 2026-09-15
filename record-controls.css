@@ -1,66 +1,66 @@
 #view-records {
-  padding-bottom: 92px;
+  padding-bottom: 90px;
 }
 
-/* Compact finance dashboard */
+/* Finans panosu: kompakt */
 .records-hero {
-  padding: 14px 15px 15px;
-  margin-bottom: 14px;
-  border-radius: 22px;
+  padding: 11px 12px 12px;
+  margin-bottom: 11px;
+  border-radius: 19px;
 }
 
 .records-hero .panel-head {
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 7px;
 }
 
 .records-hero .eyebrow {
-  margin-bottom: 2px;
-  font-size: 10.5px;
-  letter-spacing: .07em;
+  margin-bottom: 1px;
+  font-size: 9.5px;
+  letter-spacing: .06em;
 }
 
 .records-hero h2 {
-  font-size: 28px;
+  font-size: 23px;
   line-height: 1;
 }
 
 .records-hero .sync-pill {
-  min-height: 36px;
-  padding: 0 12px;
-  font-size: 12px;
+  min-height: 31px;
+  padding: 0 9px;
+  font-size: 10.5px;
 }
 
 .records-hero .stats-grid {
-  gap: 8px;
+  gap: 6px;
 }
 
 .records-hero .stat-card {
-  min-height: 72px;
-  padding: 10px 12px;
-  gap: 9px;
-  border-radius: 16px;
+  min-height: 56px;
+  padding: 7px 9px;
+  gap: 7px;
+  border-radius: 13px;
 }
 
 .records-hero .stat-icon {
-  width: 36px;
-  height: 36px;
-  flex-basis: 36px;
-  border-radius: 12px;
-  font-size: 17px;
+  width: 29px;
+  height: 29px;
+  flex-basis: 29px;
+  border-radius: 9px;
+  font-size: 13px;
 }
 
 .records-hero .stat-card span {
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .records-hero .stat-card strong {
-  margin-top: 2px;
-  font-size: 26px;
+  margin-top: 1px;
+  font-size: 21px;
   line-height: 1;
 }
 
-/* Compact record cards */
+/* Kayıt kartları */
 .record-card {
   position: relative;
   overflow: visible;
@@ -76,7 +76,7 @@
 .record-shell {
   position: relative;
   min-height: 0 !important;
-  padding: 12px 13px 11px;
+  padding: 11px 12px 10px;
   display: block;
   transform: none !important;
   transition: none !important;
@@ -86,30 +86,35 @@
   transform: none !important;
 }
 
+/*
+  Üst satır:
+  - sol %50: HESAP + hesap adı
+  - orta: DURUM + mevcut durum
+  - en sağ: SİL
+*/
 .record-head {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-  min-height: 42px;
+  display: block !important;
+  min-height: 45px;
+  padding-right: 62px;
 }
 
 .record-head > div:first-child {
-  grid-column: 1;
+  width: 50%;
   min-width: 0;
-  width: 100%;
+  padding-right: 8px;
 }
 
 .record-label {
   margin-bottom: 3px;
-  font-size: 10px;
+  font-size: 9.5px;
+  line-height: 1;
 }
 
 .record-title {
   min-width: 0;
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1.08;
   white-space: nowrap;
   overflow: hidden;
@@ -117,57 +122,71 @@
 }
 
 .status-chip {
-  grid-column: 2;
-  justify-self: start;
-  align-self: center !important;
-  min-width: 88px;
-  width: 96px;
-  height: 34px;
-  min-height: 34px;
-  padding: 0 9px;
+  position: absolute;
+  left: 50%;
+  top: 13px;
+  min-width: 86px;
+  width: 92px;
+  height: 31px;
+  min-height: 31px;
+  margin: 0;
+  padding: 0 7px;
   justify-content: center;
-  gap: 5px;
-  font-size: 11.5px;
+  gap: 4px;
+  font-size: 10.5px;
   white-space: nowrap;
 }
 
+.status-chip::before {
+  content: 'DURUM';
+  position: absolute;
+  left: 2px;
+  top: -13px;
+  color: #a2b8de;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .status-chip .arrow {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .record-grid {
-  margin-top: 8px;
-  gap: 6px;
+  margin-top: 7px;
+  gap: 5px;
 }
 
 .record-info {
   min-width: 0;
-  padding: 8px 8px;
-  border-radius: 13px;
+  padding: 7px 7px;
+  border-radius: 12px;
 }
 
 .record-info span {
-  margin-bottom: 3px;
-  font-size: 9.5px;
+  margin-bottom: 2px;
+  font-size: 9px;
 }
 
 .record-info strong {
   min-height: 0;
-  font-size: 11.5px;
-  line-height: 1.22;
+  font-size: 11px;
+  line-height: 1.2;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
 
-/* Footer is visually moved into the right half of the top row. */
+/* Eski footer sadece Sil butonunu en sağa taşır; ekstra satır oluşturmaz. */
 .record-footer {
   position: absolute;
-  top: 12px;
-  right: 13px;
-  width: calc(50% - 18px);
-  height: 34px;
+  top: 11px;
+  right: 12px;
+  width: 54px;
+  height: 44px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -185,23 +204,24 @@
 
 .record-delete-inline {
   pointer-events: auto;
-  min-width: 58px;
-  height: 34px;
-  padding: 0 9px;
+  width: 54px;
+  min-width: 54px;
+  height: 40px;
+  padding: 0 7px;
   border-radius: 10px;
   border: 1px solid rgba(255,91,98,.30);
   background: rgba(255,91,98,.10);
   color: #ffb6ba;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .record-delete-inline span {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
 }
 
@@ -216,108 +236,119 @@
 
 @media (max-width: 560px) {
   #view-records {
-    padding-bottom: 88px;
+    padding-bottom: 86px;
   }
 
   .records-hero {
-    padding: 12px 13px 13px;
-    margin-bottom: 12px;
+    padding: 10px 11px 11px;
+    margin-bottom: 10px;
   }
 
   .records-hero .panel-head {
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .records-hero h2 {
-    font-size: 25px;
+    font-size: 21px;
   }
 
   .records-hero .sync-pill {
-    min-height: 32px;
-    padding: 0 10px;
-    font-size: 11px;
+    min-height: 29px;
+    padding: 0 8px;
+    font-size: 10px;
   }
 
   .records-hero .stats-grid {
-    gap: 6px;
+    gap: 5px;
   }
 
   .records-hero .stat-card {
-    min-height: 62px;
-    padding: 8px 9px;
-    gap: 7px;
-    border-radius: 14px;
+    min-height: 52px;
+    padding: 6px 8px;
+    gap: 6px;
+    border-radius: 12px;
   }
 
   .records-hero .stat-icon {
-    width: 31px;
-    height: 31px;
-    flex-basis: 31px;
-    border-radius: 10px;
-    font-size: 14px;
+    width: 27px;
+    height: 27px;
+    flex-basis: 27px;
+    border-radius: 8px;
+    font-size: 12px;
   }
 
   .records-hero .stat-card span {
-    font-size: 10.5px;
+    font-size: 9.5px;
   }
 
   .records-hero .stat-card strong {
-    font-size: 22px;
+    font-size: 19px;
   }
 
   .record-shell {
     min-height: 0 !important;
-    padding: 11px 12px 10px;
+    padding: 10px 11px 9px;
   }
 
   .record-head {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-    gap: 8px;
-    align-items: center !important;
+    min-height: 43px;
+    padding-right: 57px;
+  }
+
+  .record-head > div:first-child {
+    width: 50%;
+    padding-right: 6px;
   }
 
   .record-title {
-    font-size: 18px;
+    font-size: 17px;
   }
 
   .status-chip {
-    min-width: 82px;
-    width: 88px;
-    height: 32px;
-    min-height: 32px;
-    padding: 0 7px;
-    font-size: 10.5px;
+    left: 50%;
+    top: 12px;
+    min-width: 78px;
+    width: 84px;
+    height: 30px;
+    min-height: 30px;
+    padding: 0 6px;
+    font-size: 10px;
   }
 
-  .record-grid {
-    margin-top: 7px;
-    gap: 5px;
-  }
-
-  .record-info {
-    padding: 7px 6px;
-  }
-
-  .record-info span {
+  .status-chip::before {
+    top: -12px;
     font-size: 9px;
   }
 
+  .record-grid {
+    margin-top: 6px;
+    gap: 4px;
+  }
+
+  .record-info {
+    padding: 6px 6px;
+  }
+
+  .record-info span {
+    font-size: 8.5px;
+  }
+
   .record-info strong {
-    font-size: 11px;
+    font-size: 10.5px;
   }
 
   .record-footer {
-    top: 11px;
-    right: 12px;
-    width: calc(50% - 16px);
-    height: 32px;
+    top: 10px;
+    right: 11px;
+    width: 50px;
+    height: 42px;
   }
 
   .record-delete-inline {
-    min-width: 54px;
-    height: 32px;
-    padding: 0 8px;
-    font-size: 10.5px;
+    width: 50px;
+    min-width: 50px;
+    height: 38px;
+    padding: 0 6px;
+    font-size: 10px;
   }
 }
