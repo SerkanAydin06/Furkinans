@@ -1,11 +1,14 @@
 .brand-mark {
-  color: transparent !important;
-  content: url('./icon.svg?v=11') !important;
-  object-position: 9999px 9999px !important;
-  background: transparent url('./icon.svg?v=11') center / 100% 100% no-repeat !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-  overflow: visible;
+  width: 82px;
+  height: 82px;
+  flex: 0 0 82px;
+  display: block;
+  object-fit: contain;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 22px;
+  box-shadow: 0 14px 34px rgba(0,0,0,.24);
+  overflow: hidden;
 }
 
 #view-records {
@@ -287,6 +290,13 @@
 }
 
 @media (max-width: 560px) {
+  .brand-mark {
+    width: 68px;
+    height: 68px;
+    flex-basis: 68px;
+    border-radius: 18px;
+  }
+
   #view-records {
     padding-bottom: 86px;
   }
