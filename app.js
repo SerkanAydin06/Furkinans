@@ -9,6 +9,7 @@
   const $ = (id) => document.getElementById(id);
   let data = loadData();
   let editingId = null;
+  let backendReady = false;
 
   const els = {
     tabRecords: $('tabRecords'), tabSettings: $('tabSettings'), recordsView: $('recordsView'), settingsView: $('settingsView'),
@@ -272,6 +273,7 @@
   }
 
   async function postOpaque(action, { keepalive = false, activatePlan = false } = {}) {
+    if (!backendReady) throw new Error('Furkinans sunucusu v2.2 henüz hazır değil.');
     await fetch(SERVER_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -323,6 +325,11 @@
   let syncInFlight = null;
 
   async function syncAll({ quiet = false, activatePlan = false } = {}) {
+    if (!backendReady) {
+      updateSyncBadge('Sunucu bekleniyor');
+      window.dispatchEvent(new CustomEvent('furkinans:sync', { detail: { state: 'waiting' } }));
+      return;
+    }
     if (!navigator.onLine) {
       updateSyncBadge('Çevrimdışı');
       window.dispatchEvent(new CustomEvent('furkinans:sync', { detail: { state: 'offline' } }));
@@ -383,6 +390,12 @@
   els.pairTelegramButton.addEventListener('click', pairTelegram);
   els.refreshPairCodeButton.addEventListener('click', refreshPairCode);
   els.testTelegramButton.addEventListener('click', testTelegram);
+  window.addEventListener('furkinans:backend-ready', () => {
+    if (backendReady) return;
+    backendReady = true;
+    updateSyncBadge();
+    syncAll({ quiet: true });
+  });
   window.addEventListener('online', () => { updateSyncBadge(); syncAll({ quiet: true }); });
   window.addEventListener('offline', () => {
     updateSyncBadge();
@@ -397,8 +410,7 @@
   loadSettingsUi();
   saveData();
 
-  // Register/refresh this device and its current pairing code whenever the app opens.
-  if (navigator.onLine) syncAll({ quiet: true });
+  // status.js verifies backend v2.2 first, then emits furkinans:backend-ready.
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
