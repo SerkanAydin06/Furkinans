@@ -90,22 +90,57 @@
           </label>
 
           <button id="saveSettingsButton" class="primary-button" type="button">Bildirim Ayarlarını Kaydet</button>
+
+          <div id="settingsSaveFeedback" class="save-feedback" role="status" aria-live="polite">
+            <span class="save-feedback-icon">✓</span>
+            <div>
+              <strong id="settingsSaveTitle">Ayarlar hazır</strong>
+              <span id="settingsSaveDetail">Değişiklik yaptıktan sonra Kaydet'e bas.</span>
+            </div>
+          </div>
+
+          <div class="plan-status-card">
+            <div class="status-card-head">
+              <div>
+                <span class="eyebrow">AKTİF PLAN</span>
+                <strong id="planStatusTitle">Bildirim planı</strong>
+              </div>
+              <span id="planStatusBadge" class="mini-status checking">Kontrol ediliyor</span>
+            </div>
+            <div class="plan-summary-grid">
+              <div><span>Gönderim</span><strong id="planScheduleLabel">—</strong></div>
+              <div><span>Tarama</span><strong id="planLookaheadLabel">—</strong></div>
+              <div><span>Kayıt</span><strong id="planRecordCountLabel">—</strong></div>
+              <div><span>Sunucu</span><strong id="planServerLabel">Kontrol ediliyor</strong></div>
+            </div>
+          </div>
         </div>
 
         <div class="card stack">
           <div>
             <span class="eyebrow">TELEGRAM BAĞLANTISI</span>
-            <h2>Bu telefonu Telegram’a bağla</h2>
-            <p class="muted">Her telefon kendi Telegram hesabını ayrı bağlar. Aşağıdaki düğmeye bas, Telegram açılınca <strong>Başlat / Start</strong> düğmesine dokun. Bot en geç yaklaşık 1 dakika içinde bağlantıyı onaylar.</p>
+            <h2>Telegram durumu</h2>
+            <p class="muted">Bu cihazın Telegram bağlantısını Furkinans sunucusundan kontrol eder.</p>
           </div>
 
-          <div class="pair-code-box">
-            <span>Bağlantı kodu</span>
-            <strong id="pairCodeLabel">--------</strong>
+          <div id="telegramStatusCard" class="telegram-status-card checking">
+            <span class="telegram-status-dot" aria-hidden="true"></span>
+            <div>
+              <strong id="telegramStatusTitle">Bağlantı kontrol ediliyor…</strong>
+              <span id="telegramStatusDetail">Sunucudan güncel durum alınıyor.</span>
+            </div>
           </div>
 
-          <button id="pairTelegramButton" class="telegram-button" type="button">Telegram’da Bağla</button>
-          <button id="refreshPairCodeButton" class="secondary-button" type="button">Bağlantı Kodunu Yenile</button>
+          <div id="pairingControls" class="pairing-controls">
+            <p class="muted compact">Bağlı değilse aşağıdaki düğmeye bas. Telegram açılınca <strong>Başlat / Start</strong> düğmesine dokun.</p>
+            <div class="pair-code-box">
+              <span>Bağlantı kodu</span>
+              <strong id="pairCodeLabel">--------</strong>
+            </div>
+
+            <button id="pairTelegramButton" class="telegram-button" type="button">Telegram’da Bağla</button>
+            <button id="refreshPairCodeButton" class="secondary-button" type="button">Bağlantı Kodunu Yenile</button>
+          </div>
 
           <div class="button-row">
             <button id="testTelegramButton" class="secondary-button" type="button">Telegram Testi</button>
