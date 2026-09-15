@@ -1,4 +1,4 @@
-const CACHE = 'furkinans-pwa-v13';
+const CACHE = 'furkinans-pwa-v14';
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,10 +6,12 @@ const APP_SHELL = [
   './status.css',
   './pro-ui.css',
   './tabs-v2.css',
+  './match-ui.css',
   './app.js',
   './status.js',
   './pro-ui.js',
   './tabs-v2.js',
+  './match-ui.js',
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',
@@ -25,11 +27,17 @@ function enhanceHtml(html) {
   if (!out.includes('tabs-v2.css')) {
     out = out.replace('</head>', '  <link rel="stylesheet" href="tabs-v2.css" />\n</head>');
   }
+  if (!out.includes('match-ui.css')) {
+    out = out.replace('</head>', '  <link rel="stylesheet" href="match-ui.css" />\n</head>');
+  }
   if (!out.includes('pro-ui.js')) {
     out = out.replace('</body>', '  <script src="pro-ui.js"></script>\n</body>');
   }
   if (!out.includes('tabs-v2.js')) {
     out = out.replace('</body>', '  <script src="tabs-v2.js"></script>\n</body>');
+  }
+  if (!out.includes('match-ui.js')) {
+    out = out.replace('</body>', '  <script src="match-ui.js"></script>\n</body>');
   }
   return out;
 }
