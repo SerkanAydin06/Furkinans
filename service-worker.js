@@ -1,10 +1,11 @@
-const CACHE_NAME = 'furkinans-v1-1-cache-r14';
+const CACHE_NAME = 'furkinans-v1-1-cache-r15';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './record-controls.css',
   './app.js',
+  './notification-plan.js',
   './manifest.webmanifest',
   './icons/furkinans-logo.png?v=14'
 ];
