@@ -1,1 +1,0 @@
-The Furkinans production logo is generated from the approved premium F emblem and stored as icons/furkinans-logo.png. Legacy icon assets are intentionally removed.
