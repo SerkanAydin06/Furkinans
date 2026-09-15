@@ -1,6 +1,8 @@
 .brand-mark {
   color: transparent !important;
-  background: transparent url('./icon.svg') center / 100% 100% no-repeat !important;
+  content: url('./icon.svg?v=11') !important;
+  object-position: 9999px 9999px !important;
+  background: transparent url('./icon.svg?v=11') center / 100% 100% no-repeat !important;
   box-shadow: none !important;
   border-radius: 0 !important;
   overflow: visible;
