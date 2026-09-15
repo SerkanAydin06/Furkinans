@@ -2,8 +2,12 @@
   const APP_VERSION = '1.0';
   const STORAGE_KEY = 'furkinans_v1_0';
   const LEGACY_STORAGE_KEY = 'furkinans_pwa_v1';
+  const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycby_UhUPM0hRMEm-2d2UQE-PzWdH1QRd4eLxwZpAgrk9tN4aG5rLZcvoUEY1PMQGEGuuDQ/exec';
+  const LEGACY_BACKEND_URLS = [
+    'https://script.google.com/macros/s/AKfycbxFU_W3cG09demXHXANalKYOyxp7Xte_0XONRyhJZ-30QB26LCvqXw6ygYWnCBEuxiK/exec',
+    'https://script.google.com/macros/s/AKfycbx2mm0fCPOjyUz3zGad2ltU3sQSe_6-hLWr7vJPT6OIJQu1vGZydgYadawNpen9_2vY/exec'
+  ];
   const SYNC_DEBOUNCE_MS = 1200;
-  const SWIPE_OPEN_PX = 104;
   const DEFAULT_SETTINGS = {
     weekday: 6,
     hour: 12,
@@ -13,7 +17,7 @@
     daily_hour: 22,
     daily_minute: 0,
     enabled: false,
-    backend_url: '',
+    backend_url: DEFAULT_BACKEND_URL,
     bot_username: '',
     pair_code: ''
   };
@@ -157,6 +161,7 @@
       tab.classList.toggle('active', active);
       view.classList.toggle('active', active);
     });
+    els.addRecord.classList.toggle('hidden', name !== 'records');
   }
 
   function renderStats() {
@@ -178,38 +183,29 @@
       card.className = `record-card tone-${recordTone(record)}`;
       card.dataset.id = record.id;
 
-      const deleteZone = document.createElement('div');
-      deleteZone.className = 'record-delete-zone';
-      const deleteButton = document.createElement('button');
-      deleteButton.className = 'record-delete-button';
-      deleteButton.type = 'button';
-      deleteButton.textContent = 'Sil';
-      deleteButton.addEventListener('click', () => {
-        deleteCandidateId = record.id;
-        openConfirm();
-      });
-      deleteZone.appendChild(deleteButton);
-
       const shell = document.createElement('div');
       shell.className = 'record-shell';
       shell.innerHTML = recordCardMarkup(record);
-      attachSwipe(card, shell);
 
-      shell.querySelector('.status-chip').addEventListener('click', (e) => {
+      const statusButton = shell.querySelector('.status-chip');
+      statusButton.addEventListener('click', (e) => {
         e.stopPropagation();
         togglePaid(record.id);
       });
 
+      const deleteButton = shell.querySelector('.record-delete-inline');
+      deleteButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteCandidateId = record.id;
+        openConfirm();
+      });
+
       shell.addEventListener('click', (e) => {
-        if (e.target.closest('.status-chip')) return;
-        if (card.classList.contains('open')) {
-          closeAllSwipeCards();
-          return;
-        }
+        if (e.target.closest('.status-chip') || e.target.closest('.record-delete-inline')) return;
         openEditor(record.id);
       });
 
-      card.append(deleteZone, shell);
+      card.appendChild(shell);
       els.recordsList.appendChild(card);
     });
   }
@@ -220,8 +216,12 @@
     const chipClass = paid ? 'paid' : overdue ? 'overdue' : 'pending';
     const chipLabel = paid ? 'Ödendi' : overdue ? 'Gecikti' : 'Bekliyor';
     const dateTypeLabel = record.date_type === 'statement' ? 'Hesap Kesim' : 'Son Ödeme';
-    const paidNote = paid && record.paid_at ? `<span class="record-paid-note">✓ Ödeme tarihi: ${formatDisplayDate(record.paid_at)}</span>` : '';
     const description = escapeHtml(record.description || 'Açıklama girilmedi');
+    const stateNote = paid && record.paid_at
+      ? `✓ Ödeme tarihi: ${formatDisplayDate(record.paid_at)}`
+      : overdue
+        ? 'Bu ödeme gecikmiş durumda.'
+        : 'Ödeme bekliyor.';
     return `
       <div class="record-head">
         <div>
@@ -236,60 +236,10 @@
         <div class="record-info"><span>Açıklama</span><strong>${description}</strong></div>
       </div>
       <div class="record-footer">
-        ${paidNote || '<span class="record-hint">Kaydı sola kaydırarak silme onayını açabilirsin.</span>'}
-        ${paid ? '<span class="record-hint">Durumu değiştirerek tekrar bekleyen yapabilirsin.</span>' : ''}
+        <span class="record-state-note ${chipClass}">${stateNote}</span>
+        <button class="record-delete-inline" type="button" aria-label="Kaydı sil"><span>−</span> Sil</button>
       </div>
     `;
-  }
-
-  function attachSwipe(card, shell) {
-    let startX = 0;
-    let startY = 0;
-    let dragging = false;
-    let pointerId = null;
-    let currentX = 0;
-    shell.addEventListener('pointerdown', (e) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      pointerId = e.pointerId;
-      startX = e.clientX;
-      startY = e.clientY;
-      dragging = true;
-      currentX = card.classList.contains('open') ? -SWIPE_OPEN_PX : 0;
-      shell.style.transition = 'none';
-      card.setPointerCapture?.(pointerId);
-    });
-    shell.addEventListener('pointermove', (e) => {
-      if (!dragging || e.pointerId !== pointerId) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) return;
-      const next = Math.max(-SWIPE_OPEN_PX, Math.min(0, currentX + dx));
-      shell.style.transform = `translateX(${next}px)`;
-    });
-    function finish(e) {
-      if (!dragging || e.pointerId !== pointerId) return;
-      dragging = false;
-      shell.style.transition = '';
-      const matrix = new DOMMatrixReadOnly(getComputedStyle(shell).transform);
-      const translateX = matrix.m41;
-      card.releasePointerCapture?.(pointerId);
-      pointerId = null;
-      if (translateX < -56) {
-        closeAllSwipeCards(card);
-        card.classList.add('open');
-      } else {
-        card.classList.remove('open');
-      }
-      shell.style.transform = '';
-    }
-    shell.addEventListener('pointerup', finish);
-    shell.addEventListener('pointercancel', finish);
-  }
-
-  function closeAllSwipeCards(skipCard = null) {
-    document.querySelectorAll('.record-card.open').forEach((card) => {
-      if (card !== skipCard) card.classList.remove('open');
-    });
   }
 
   function openEditor(id = null) {
@@ -685,11 +635,17 @@
       updated_at: record.updated_at || new Date().toISOString()
     })).filter((record) => record.account_name && /^\d{4}-\d{2}-\d{2}$/.test(record.date)) : [];
 
+    const mergedSettings = { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) };
+    const currentBackendUrl = String(mergedSettings.backend_url || '').replace(/\/+$/, '');
+    if (!currentBackendUrl || LEGACY_BACKEND_URLS.includes(currentBackendUrl)) {
+      mergedSettings.backend_url = DEFAULT_BACKEND_URL;
+    }
+
     return {
       installation_id: parsed.installation_id || createId('dev'),
       device_secret: parsed.device_secret || createId('sec') + createId('x'),
       records,
-      settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
+      settings: mergedSettings,
       last_sync_at: parsed.last_sync_at || ''
     };
   }
