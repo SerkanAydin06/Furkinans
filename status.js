@@ -21,7 +21,7 @@
     telegramStatusDetail: $('telegramStatusDetail'),
     pairingControls: $('pairingControls'),
     saveSettingsButton: $('saveSettingsButton'),
-    syncButton: $('syncButton'),
+    autoSyncCard: $('autoSyncCard'), autoSyncTitle: $('autoSyncTitle'), autoSyncDetail: $('autoSyncDetail'),
     tabSettings: $('tabSettings')
   };
 
@@ -82,6 +82,34 @@
     if (icon) icon.textContent = state === 'error' ? '!' : state === 'saving' ? '↻' : '✓';
   }
 
+  function renderAutoSync(state = '') {
+    if (!els.autoSyncCard) return;
+    const last = Number(localStorage.getItem(`${STORAGE_KEY}_last_sync`) || 0);
+    els.autoSyncCard.classList.remove('syncing', 'offline', 'error');
+
+    if (!navigator.onLine || state === 'offline') {
+      els.autoSyncCard.classList.add('offline');
+      els.autoSyncTitle.textContent = 'Çevrimdışı — değişiklikler cihazda saklanıyor';
+      els.autoSyncDetail.textContent = 'İnternet geldiğinde otomatik olarak sunucuya gönderilecek.';
+      return;
+    }
+    if (state === 'syncing') {
+      els.autoSyncCard.classList.add('syncing');
+      els.autoSyncTitle.textContent = 'Otomatik senkronizasyon yapılıyor…';
+      els.autoSyncDetail.textContent = 'Değişiklikler sunucuya gönderiliyor.';
+      return;
+    }
+    if (state === 'error') {
+      els.autoSyncCard.classList.add('error');
+      els.autoSyncTitle.textContent = 'Senkronizasyon tekrar denenecek';
+      els.autoSyncDetail.textContent = 'Uygulama açıkken veya internet yenilendiğinde otomatik tekrar dener.';
+      return;
+    }
+
+    els.autoSyncTitle.textContent = 'Otomatik senkronizasyon açık';
+    els.autoSyncDetail.textContent = last ? `Son gönderim: ${formatStamp(last)}.` : 'Kayıt ve ayar değişiklikleri otomatik gönderilir.';
+  }
+
   function renderPlan() {
     if (!els.planStatusBadge) return;
     const data = readData();
@@ -110,7 +138,12 @@
       return;
     }
 
-    if (serverStatus.found && scheduleMatches(serverStatus, data)) {
+    if (serverStatus.found && serverStatus.enabled === false) {
+      els.planStatusBadge.classList.add('warning');
+      els.planStatusBadge.textContent = 'Ayarlanmadı';
+      els.planServerLabel.textContent = 'Pasif';
+      els.planRecordCountLabel.textContent = `${Number(serverStatus.record_count) || 0} kayıt`;
+    } else if (serverStatus.found && scheduleMatches(serverStatus, data)) {
       els.planStatusBadge.classList.add('active');
       els.planStatusBadge.textContent = 'Aktif';
       els.planServerLabel.textContent = 'Kaydedildi';
@@ -122,8 +155,8 @@
       els.planRecordCountLabel.textContent = `${Number(serverStatus.record_count) || 0} kayıt`;
     } else {
       els.planStatusBadge.classList.add('warning');
-      els.planStatusBadge.textContent = 'Henüz yok';
-      els.planServerLabel.textContent = 'Senkron gerekli';
+      els.planStatusBadge.textContent = 'Ayarlanmadı';
+      els.planServerLabel.textContent = 'Henüz kayıt yok';
     }
   }
 
@@ -167,6 +200,8 @@
     if (serverStatus && serverStatus.found && scheduleMatches(serverStatus, data)) {
       const suffix = stamp ? ` • Son kayıt: ${formatStamp(stamp)}` : '';
       setSaveState('saved', '✓ Ayarlar sunucuda aktif', `Bildirim planı doğrulandı${suffix}.`);
+    } else if (serverStatus && serverStatus.found && serverStatus.enabled === false) {
+      setSaveState('', 'Bildirim planı ayarlanmadı', 'Gün, saat ve tarama aralığını seçip Kaydet’e bas.');
     } else if (stamp) {
       setSaveState('', 'Ayarlar cihazda kayıtlı', `Son kayıt: ${formatStamp(stamp)}.`);
     }
@@ -176,6 +211,7 @@
     renderPlan();
     renderTelegram();
     renderSaved();
+    renderAutoSync();
   }
 
   function fetchStatus() {
@@ -247,7 +283,7 @@
       els.telegramStatusCard.classList.remove('checking', 'linked', 'unlinked');
       els.telegramStatusCard.classList.add('error');
       els.telegramStatusTitle.textContent = 'Durum kontrolü başarısız';
-      els.telegramStatusDetail.textContent = 'Sunucu v2.1 güncellemesi gerekli olabilir.';
+      els.telegramStatusDetail.textContent = 'Sunucu v2.2 güncellemesi gerekli olabilir.';
       els.pairingControls.classList.remove('hidden');
       return null;
     }
@@ -271,13 +307,15 @@
     });
   }
 
-  if (els.syncButton) {
-    els.syncButton.addEventListener('click', () => setTimeout(() => refreshStatus({ quiet: true }), 1000));
-  }
   if (els.tabSettings) {
     els.tabSettings.addEventListener('click', () => refreshStatus());
   }
 
+  window.addEventListener('furkinans:sync', (event) => {
+    const detail = event && event.detail ? event.detail : {};
+    renderAutoSync(detail.state || '');
+    if (detail.state === 'synced') setTimeout(() => refreshStatus({ quiet: true }), 700);
+  });
   window.addEventListener('focus', () => { if (navigator.onLine) refreshStatus({ quiet: true }); });
   window.addEventListener('online', () => setTimeout(() => refreshStatus(), 700));
   window.addEventListener('offline', () => { serverStatus = null; renderAll(); });
