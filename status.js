@@ -63,7 +63,7 @@
   }
 
   function scheduleMatches(status, data) {
-    if (!status || !status.found) return false;
+    if (!status || !status.found || Number(status.backend_version || 0) < 2.2) return false;
     const s = data.settings;
     return Number(status.weekday) === int(s.weekday, 0, 6, 6)
       && Number(status.hour) === int(s.hour, 0, 23, 12)
@@ -141,6 +141,13 @@
       els.planStatusBadge.classList.add('checking');
       els.planStatusBadge.textContent = 'Kontrol ediliyor';
       els.planServerLabel.textContent = 'Kontrol ediliyor';
+      return;
+    }
+
+    if (Number(serverStatus.backend_version || 0) < 2.2) {
+      els.planStatusBadge.classList.add('warning');
+      els.planStatusBadge.textContent = 'Sunucu bekleniyor';
+      els.planServerLabel.textContent = 'v2.2 gerekli';
       return;
     }
 
@@ -282,12 +289,12 @@
       const result = await fetchStatus();
       serverStatus = result && result.ok ? result : { ok: false, found: false };
       const backendVersion = Number(serverStatus && serverStatus.backend_version || 0);
+      renderAll();
       if (backendVersion >= 2.2) {
         window.dispatchEvent(new CustomEvent('furkinans:backend-ready'));
       } else {
         renderAutoSync('waiting');
       }
-      renderAll();
       return serverStatus;
     } catch (err) {
       serverStatus = null;
