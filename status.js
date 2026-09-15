@@ -14,6 +14,7 @@
     planStatusBadge: $('planStatusBadge'),
     planScheduleLabel: $('planScheduleLabel'),
     planLookaheadLabel: $('planLookaheadLabel'),
+    planDailyLabel: $('planDailyLabel'),
     planRecordCountLabel: $('planRecordCountLabel'),
     planServerLabel: $('planServerLabel'),
     telegramStatusCard: $('telegramStatusCard'),
@@ -32,10 +33,10 @@
     try {
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
       parsed.records = Array.isArray(parsed.records) ? parsed.records : [];
-      parsed.settings = Object.assign({ weekday: 6, hour: 12, minute: 0, lookahead_days: 7 }, parsed.settings || {});
+      parsed.settings = Object.assign({ weekday: 6, hour: 12, minute: 0, lookahead_days: 7, lookback_days: 2, daily_hour: 22, daily_minute: 0 }, parsed.settings || {});
       return parsed;
     } catch (_) {
-      return { records: [], settings: { weekday: 6, hour: 12, minute: 0, lookahead_days: 7 } };
+      return { records: [], settings: { weekday: 6, hour: 12, minute: 0, lookahead_days: 7, lookback_days: 2, daily_hour: 22, daily_minute: 0 } };
     }
   }
 
@@ -63,12 +64,15 @@
   }
 
   function scheduleMatches(status, data) {
-    if (!status || !status.found || Number(status.backend_version || 0) < 2.2) return false;
+    if (!status || !status.found || Number(status.backend_version || 0) < 2.3) return false;
     const s = data.settings;
     return Number(status.weekday) === int(s.weekday, 0, 6, 6)
       && Number(status.hour) === int(s.hour, 0, 23, 12)
       && Number(status.minute) === int(s.minute, 0, 59, 0)
       && Number(status.lookahead_days) === int(s.lookahead_days, 1, 60, 7)
+      && Number(status.lookback_days) === int(s.lookback_days, 0, 60, 2)
+      && Number(status.daily_hour) === int(s.daily_hour, 0, 23, 22)
+      && Number(status.daily_minute) === int(s.daily_minute, 0, 59, 0)
       && status.enabled !== false;
   }
 
@@ -108,7 +112,7 @@
     if (state === 'waiting') {
       els.autoSyncCard.classList.add('syncing');
       els.autoSyncTitle.textContent = 'Sunucu doğrulanıyor…';
-      els.autoSyncDetail.textContent = 'v2.2 hazır olduğunda senkronizasyon otomatik başlayacak.';
+      els.autoSyncDetail.textContent = 'v2.3 hazır olduğunda senkronizasyon otomatik başlayacak.';
       return;
     }
 
@@ -124,10 +128,15 @@
     const hour = String(int(s.hour, 0, 23, 12)).padStart(2, '0');
     const minute = String(int(s.minute, 0, 59, 0)).padStart(2, '0');
     const lookahead = int(s.lookahead_days, 1, 60, 7);
+    const lookback = int(s.lookback_days, 0, 60, 2);
+    const dailyHour = String(int(s.daily_hour, 0, 23, 22)).padStart(2, '0');
+    const dailyMinute = String(int(s.daily_minute, 0, 59, 0)).padStart(2, '0');
 
     els.planScheduleLabel.textContent = `${weekday} • ${hour}:${minute}`;
-    els.planLookaheadLabel.textContent = `${lookahead} gün ileri`;
-    els.planRecordCountLabel.textContent = `${data.records.length} kayıt`;
+    els.planLookaheadLabel.textContent = `${lookback} geri • ${lookahead} ileri`;
+    if (els.planDailyLabel) els.planDailyLabel.textContent = `${dailyHour}:${dailyMinute}`;
+    const pendingLocal = data.records.filter((record) => !record.paid).length;
+    els.planRecordCountLabel.textContent = `${pendingLocal} bekliyor`;
     els.planStatusBadge.classList.remove('checking', 'active', 'warning');
 
     if (!navigator.onLine) {
@@ -144,10 +153,10 @@
       return;
     }
 
-    if (Number(serverStatus.backend_version || 0) < 2.2) {
+    if (Number(serverStatus.backend_version || 0) < 2.3) {
       els.planStatusBadge.classList.add('warning');
       els.planStatusBadge.textContent = 'Sunucu bekleniyor';
-      els.planServerLabel.textContent = 'v2.2 gerekli';
+      els.planServerLabel.textContent = 'v2.3 gerekli';
       return;
     }
 
@@ -155,17 +164,17 @@
       els.planStatusBadge.classList.add('warning');
       els.planStatusBadge.textContent = 'Ayarlanmadı';
       els.planServerLabel.textContent = 'Pasif';
-      els.planRecordCountLabel.textContent = `${Number(serverStatus.record_count) || 0} kayıt`;
+      els.planRecordCountLabel.textContent = `${Number(serverStatus.unpaid_count) || 0} bekliyor`;
     } else if (serverStatus.found && scheduleMatches(serverStatus, data)) {
       els.planStatusBadge.classList.add('active');
       els.planStatusBadge.textContent = 'Aktif';
       els.planServerLabel.textContent = 'Kaydedildi';
-      els.planRecordCountLabel.textContent = `${Number(serverStatus.record_count) || 0} kayıt`;
+      els.planRecordCountLabel.textContent = `${Number(serverStatus.unpaid_count) || 0} bekliyor`;
     } else if (serverStatus.found) {
       els.planStatusBadge.classList.add('warning');
       els.planStatusBadge.textContent = 'Güncelleniyor';
       els.planServerLabel.textContent = 'Ayarlar farklı';
-      els.planRecordCountLabel.textContent = `${Number(serverStatus.record_count) || 0} kayıt`;
+      els.planRecordCountLabel.textContent = `${Number(serverStatus.unpaid_count) || 0} bekliyor`;
     } else {
       els.planStatusBadge.classList.add('warning');
       els.planStatusBadge.textContent = 'Ayarlanmadı';
@@ -290,7 +299,7 @@
       serverStatus = result && result.ok ? result : { ok: false, found: false };
       const backendVersion = Number(serverStatus && serverStatus.backend_version || 0);
       renderAll();
-      if (backendVersion >= 2.2) {
+      if (backendVersion >= 2.3) {
         window.dispatchEvent(new CustomEvent('furkinans:backend-ready'));
       } else {
         renderAutoSync('waiting');
@@ -302,7 +311,7 @@
       els.telegramStatusCard.classList.remove('checking', 'linked', 'unlinked');
       els.telegramStatusCard.classList.add('error');
       els.telegramStatusTitle.textContent = 'Durum kontrolü başarısız';
-      els.telegramStatusDetail.textContent = 'Sunucu v2.2 güncellemesi gerekli olabilir.';
+      els.telegramStatusDetail.textContent = 'Sunucu v2.3 güncellemesi gerekli olabilir.';
       els.pairingControls.classList.remove('hidden');
       return null;
     }
